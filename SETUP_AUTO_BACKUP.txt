@@ -1,0 +1,137 @@
+================================================================================
+    AUTOMATIC BACKUP SETUP INSTRUCTIONS
+    DARLa HRIS - Weekly Backup (Every Friday at 4:30 PM)
+================================================================================
+
+This guide will help you set up automatic database backups that run every
+Friday at 4:30 PM.
+
+STEP 1: Verify Files
+---------------------
+Make sure these files exist in your project directory:
+  - auto_backup.php (automatic backup script)
+  - schedule_backup.bat (Windows batch file)
+  - db.php (database connection)
+  - activity_logger.php (activity logging)
+
+STEP 2: Test the Backup Script Manually
+-----------------------------------------
+1. Open Command Prompt (cmd.exe)
+2. Navigate to your project directory:
+   cd C:\xampp1\htdocs\DarLa
+3. Run the backup script manually:
+   C:\xampp1\php\php.exe auto_backup.php
+4. Check if a backup file was created in the "backups" folder
+5. Check the log file: backups\auto_backup.log
+
+STEP 3: Set Up Windows Task Scheduler
+---------------------------------------
+1. Open Windows Task Scheduler:
+   - Press Windows Key + R
+   - Type: taskschd.msc
+   - Press Enter
+
+2. Create a New Task:
+   - Click "Create Task" (not "Create Basic Task")
+   - General Tab:
+     * Name: DARLa HRIS Auto Backup
+     * Description: Automatic database backup every Friday at 4:30 PM
+     * Check "Run whether user is logged on or not"
+     * Check "Run with highest privileges"
+     * Configure for: Windows 10
+
+3. Triggers Tab:
+   - Click "New..."
+   * Begin the task: On a schedule
+   * Settings: Weekly
+   * Day: Friday
+   * Time: 4:30 PM
+   * Repeat task every: 1 weeks
+   * Click OK
+
+4. Actions Tab:
+   - Click "New..."
+   * Action: Start a program
+   * Program/script: C:\xampp1\htdocs\DarLa\schedule_backup.bat
+   * Start in: C:\xampp1\htdocs\DarLa
+   * Click OK
+
+5. Conditions Tab:
+   - Uncheck "Start the task only if the computer is on AC power"
+   - Check "Wake the computer to run this task" (optional)
+
+6. Settings Tab:
+   - Check "Allow task to be run on demand"
+   - Check "Run task as soon as possible after a scheduled start is missed"
+   - If the task fails, restart every: 10 minutes
+   - Attempt to restart up to: 3 times
+   - Click OK
+
+7. Save the Task:
+   - You may be prompted for your Windows password
+   - Enter your Windows administrator password
+
+STEP 4: Test the Scheduled Task
+--------------------------------
+1. In Task Scheduler, find "DARLa HRIS Auto Backup"
+2. Right-click on it
+3. Select "Run"
+4. Check the backups folder for a new backup file
+5. Check backups\auto_backup.log for details
+
+STEP 5: Verify Automatic Execution
+----------------------------------
+Wait until next Friday at 4:30 PM, or:
+1. Change the schedule to run in a few minutes for testing
+2. Wait and verify the backup is created automatically
+3. Change the schedule back to Friday 4:30 PM
+
+BACKUP DETAILS
+--------------
+- Backup Location: C:\xampp1\htdocs\DarLa\backups\
+- Backup Filename Format: auto_backup_YYYY-MM-DD_HHMMSS.sql
+- Log File: backups\auto_backup.log
+- Retention: Keeps the last 8 automatic backups (8 weeks)
+- Tables Backed Up:
+  * employees
+  * appointments
+  * employee_trainings
+  * employee_leaves
+  * employee_service_records
+  * employee_work_experience
+  * employee_awards
+  * admins
+  * calendar_events
+  * activity_logs
+
+TROUBLESHOOTING
+---------------
+1. If backups are not created:
+   - Check Windows Event Viewer for task scheduler errors
+   - Check backups\auto_backup.log for PHP errors
+   - Verify PHP path is correct in schedule_backup.bat
+   - Verify database connection in db.php
+
+2. If you see permission errors:
+   - Make sure Task Scheduler is running with administrator privileges
+   - Check that the backups folder has write permissions
+
+3. To view backup logs:
+   - Open: C:\xampp1\htdocs\DarLa\backups\auto_backup.log
+
+4. To manually run a backup:
+   - Double-click schedule_backup.bat
+   - Or run: C:\xampp1\php\php.exe auto_backup.php
+
+NOTES
+-----
+- Automatic backups are prefixed with "auto_backup_"
+- Manual backups (from the web interface) are prefixed with "backup_"
+- Old automatic backups are automatically deleted (keeps last 8)
+- The backup script logs all activities to auto_backup.log
+- All backup operations are logged in the activity_logs table
+
+For support, check the activity log in the DARLa HRIS system.
+
+================================================================================
+
