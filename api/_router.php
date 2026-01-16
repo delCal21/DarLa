@@ -27,6 +27,7 @@ class PHPRouter {
             '/test' => './test.php',
             '/status' => './status.php',
             '/diagnostic' => './diagnostic.php',
+            '/test_php' => './test_php.php',
         ];
     }
 

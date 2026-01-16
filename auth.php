@@ -1,8 +1,19 @@
 <?php
-// Basic admin authentication helpers
+// Basic admin authentication helpers for serverless environments
 
+// Initialize session if not already started
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    // In serverless environments, sessions might not work as expected
+    // We'll try to start the session but handle failures gracefully
+    if (!headers_sent()) {
+        session_start();
+    } else {
+        // If headers are already sent, we can't start a session
+        // Just define a placeholder for session data
+        if (!isset($_SESSION)) {
+            $_SESSION = [];
+        }
+    }
 }
 
 /**
@@ -10,7 +21,12 @@ if (session_status() === PHP_SESSION_NONE) {
  */
 function is_admin_logged_in(): bool
 {
-    return !empty($_SESSION['admin_logged_in']);
+    // Check if session is available
+    if (isset($_SESSION) && is_array($_SESSION)) {
+        return !empty($_SESSION['admin_logged_in']);
+    }
+    // If session is not available, return false
+    return false;
 }
 
 /**
@@ -19,8 +35,16 @@ function is_admin_logged_in(): bool
 function require_admin_login(): void
 {
     if (!is_admin_logged_in()) {
-        header('Location: login.php');
-        exit;
+        // Instead of redirecting directly, return a flag that the page can handle
+        if (!headers_sent()) {
+            header('Location: /?page=login');
+            exit;
+        } else {
+            // If headers are already sent, we can't redirect
+            // Display a message or handle differently
+            echo '<div class="alert alert-warning">Please <a href="/?page=login">login</a> to access this page.</div>';
+            exit;
+        }
     }
 }
 
