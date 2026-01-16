@@ -28,6 +28,7 @@ class PHPRouter {
             '/status' => './status.php',
             '/diagnostic' => './diagnostic.php',
             '/test_php' => './test_php.php',
+            '/login_handler' => './login_handler.php',
         ];
     }
 

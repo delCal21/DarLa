@@ -34,13 +34,9 @@ if (isset($_GET['page'])) {
             }
             break;
         case 'login':
-            if (file_exists('login.php')) {
-                // Don't use include_once here as login.php has its own session handling
-                include 'login.php';
-                exit; // Exit after including login to prevent further execution
-            } else {
-                echo "Login page not found";
-            }
+            // Redirect to the direct login URL
+            header('Location: /login');
+            exit;
             break;
         default:
             // For unknown pages, show a menu
@@ -50,7 +46,7 @@ if (isset($_GET['page'])) {
             echo "<li><a href='/?page=employees'>Employees</a></li>";
             echo "<li><a href='/?page=activity_log'>Activity Log</a></li>";
             echo "<li><a href='/?page=admin'>Admin Profile</a></li>";
-            echo "<li><a href='/?page=login'>Login</a></li>";
+            echo "<li><a href='/login'>Login</a></li>";
             echo "</ul>";
     }
 } else {
@@ -64,17 +60,12 @@ if (isset($_GET['page'])) {
             } else {
                 echo "<h1>DarLa Application</h1>";
                 echo "<p>You are logged in. Employees page not found.</p>";
-                echo "<a href='/?page=login'>Go to Login</a>";
+                echo "<a href='/login'>Go to Login</a>";
             }
         } else {
-            // If not logged in, redirect to login
-            if (file_exists('login.php')) {
-                include 'login.php';
-                exit; // Exit after including login to prevent further execution
-            } else {
-                echo "<h1>DarLa Application</h1>";
-                echo "<p>Please <a href='/?page=login'>login</a> to access the application.</p>";
-            }
+            // If not logged in, redirect to direct login URL
+            header('Location: /login');
+            exit;
         }
     } else {
         // Auth system not available, show basic menu
@@ -84,7 +75,7 @@ if (isset($_GET['page'])) {
         echo "<li><a href='/?page=employees'>Employees</a></li>";
         echo "<li><a href='/?page=activity_log'>Activity Log</a></li>";
         echo "<li><a href='/?page=admin'>Admin Profile</a></li>";
-        echo "<li><a href='/?page=login'>Login</a></li>";
+        echo "<li><a href='/login'>Login</a></li>";
         echo "</ul>";
     }
 }

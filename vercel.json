@@ -3,9 +3,16 @@
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.9.0"
+    },
+    "api/login_handler.php": {
+      "runtime": "vercel-php@0.9.0"
     }
   },
   "rewrites": [
+    {
+      "source": "/login",
+      "destination": "/api/login_handler.php"
+    },
     {
       "source": "/(.*)",
       "destination": "/api/index.php"
