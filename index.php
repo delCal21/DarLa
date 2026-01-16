@@ -35,7 +35,9 @@ if (isset($_GET['page'])) {
             break;
         case 'login':
             if (file_exists('login.php')) {
-                include_once 'login.php';
+                // Don't use include_once here as login.php has its own session handling
+                include 'login.php';
+                exit; // Exit after including login to prevent further execution
             } else {
                 echo "Login page not found";
             }
@@ -67,7 +69,8 @@ if (isset($_GET['page'])) {
         } else {
             // If not logged in, redirect to login
             if (file_exists('login.php')) {
-                include_once 'login.php';
+                include 'login.php';
+                exit; // Exit after including login to prevent further execution
             } else {
                 echo "<h1>DarLa Application</h1>";
                 echo "<p>Please <a href='/?page=login'>login</a> to access the application.</p>";
