@@ -1,11 +1,11 @@
 <?php
-// Simple database connection helper
+// Database connection helper for Vercel deployment
 
-// TODO: change these values to match your local MySQL credentials
-$DB_HOST = 'localhost';
-$DB_NAME = 'employee_db';
-$DB_USER = 'root';
-$DB_PASS = '';
+// Use environment variables for production, fallback to defaults for local
+$DB_HOST = $_ENV['DB_HOST'] ?? 'localhost';
+$DB_NAME = $_ENV['DB_NAME'] ?? 'employee_db';
+$DB_USER = $_ENV['DB_USER'] ?? 'root';
+$DB_PASS = $_ENV['DB_PASS'] ?? '';
 
 $dsn = "mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4";
 
