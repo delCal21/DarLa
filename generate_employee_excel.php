@@ -90,6 +90,14 @@ if ($usePhpSpreadsheet) {
             ->setSubject('Employee Information')
             ->setDescription('Employee record exported from DARLa HRIS');
 
+        // Set paper size to legal (8.5 x 14 inches)
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LEGAL); // Legal size paper
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
+        $sheet->getPageMargins()->setTop(0.75);
+        $sheet->getPageMargins()->setRight(0.7);
+        $sheet->getPageMargins()->setLeft(0.7);
+        $sheet->getPageMargins()->setBottom(0.75);
+
         // Define styles - Professional styling with white headers and light gray borders
         $headerStyle = [
             'font' => [
@@ -149,90 +157,197 @@ if ($usePhpSpreadsheet) {
         $row = 1;
 
         // Title
-        $sheet->setCellValue('A' . $row, 'DARLa HRIS - Employee Record');
-        $sheet->mergeCells('A' . $row . ':F' . $row);
+        $sheet->setCellValue('A' . $row, 'PERSONAL DATA SHEET');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($headerStyle);
+        $sheet->getStyle('A' . $row)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getRowDimension($row)->setRowHeight(25);
-        $row += 2;
+        $row++;
 
-        // Employee Name
-        $sheet->setCellValue('A' . $row, $fullName);
-        $sheet->mergeCells('A' . $row . ':F' . $row);
+        // Subtitle
+        $sheet->setCellValue('A' . $row, '(CS FORM 212)');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($headerStyle);
+        $sheet->getStyle('A' . $row)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getRowDimension($row)->setRowHeight(20);
-        $row += 2;
+        $row++;
 
-        // Personal Information Section
-        $sheet->setCellValue('A' . $row, 'Personal Information');
-        $sheet->mergeCells('A' . $row . ':F' . $row);
+        // Blank row for spacing
+        $row++;
+
+        // Name Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'NAME');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
         $row++;
 
-        $personalInfo = [
-            ['Birthdate', $employee['birthdate'] ?: 'Not provided'],
-            ['Home Address', $employee['home_address'] ?: 'Not provided'],
-            ['Contact Number', $employee['contact_no'] ?: 'Not provided'],
-            ['Email Address', $employee['email'] ?: 'Not provided'],
-            ['Civil Status', $employee['civil_status'] ?: 'Not provided'],
-            ['Spouse Name', $employee['spouse_name'] ?: 'Not provided'],
-            ['Spouse Contact', $employee['spouse_contact_no'] ?: 'Not provided'],
-        ];
+        // Name fields in PDS format
+        $sheet->setCellValue('A' . $row, '1. SURNAME:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['last_name'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':D' . $row);
 
-        foreach ($personalInfo as $info) {
-            $sheet->setCellValue('A' . $row, $info[0] . ':');
-            $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
-            $sheet->setCellValue('B' . $row, $info[1]);
-            $sheet->mergeCells('B' . $row . ':F' . $row);
-            $row++;
-        }
+        $sheet->setCellValue('E' . $row, '2. FIRST NAME:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, $employee['first_name'] ?: 'Not provided');
+        $sheet->mergeCells('F' . $row . ':H' . $row);
 
+        $sheet->setCellValue('I' . $row, '3. MIDDLE NAME:');
+        $sheet->getStyle('I' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('J' . $row, $employee['middle_name'] ?: 'Not provided');
+        $sheet->mergeCells('J' . $row . ':N' . $row);
         $row++;
 
-        // Employee Information Section
-        $sheet->setCellValue('A' . $row, 'Employee Information');
-        $sheet->mergeCells('A' . $row . ':F' . $row);
+        // Personal Information Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'II. PERSONAL INFORMATION');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
         $row++;
 
-        $employeeInfo = [
-            ['Employee ID', $employee['employee_number'] ?: 'Not assigned'],
-            ['BP Number', $employee['bp_number'] ?: 'Not provided'],
-            ['Pag-ibig Number', $employee['pagibig_number'] ?: 'Not provided'],
-            ['PhilHealth Number', $employee['philhealth_number'] ?: 'Not provided'],
-            ['TIN #', $employee['tin_number'] ?: 'Not provided'],
-            ['SSS #', $employee['sss_number'] ?: 'Not provided'],
-            ['GSIS #', $employee['gsis_number'] ?: 'Not provided'],
-            ['Employment Status', $employee['employment_status'] ?: 'Not provided'],
-        ];
+        // Personal info in PDS format
+        $sheet->setCellValue('A' . $row, '4. DATE OF BIRTH:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['birthdate'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':D' . $row);
 
-        foreach ($employeeInfo as $info) {
-            $sheet->setCellValue('A' . $row, $info[0] . ':');
-            $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
-            $sheet->setCellValue('B' . $row, $info[1]);
-            $sheet->mergeCells('B' . $row . ':F' . $row);
-            $row++;
-        }
-
-        if ($employee['designations']) {
-            $sheet->setCellValue('A' . $row, 'Designations:');
-            $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
-            $sheet->setCellValue('B' . $row, $employee['designations']);
-            $sheet->mergeCells('B' . $row . ':F' . $row);
-            $sheet->getStyle('B' . $row)->getAlignment()->setWrapText(true);
-            $row++;
-        }
-
+        $sheet->setCellValue('E' . $row, '5. PLACE OF BIRTH:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('F' . $row . ':N' . $row);
         $row++;
 
-        // Educational Background
+        $sheet->setCellValue('A' . $row, '6. SEX:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, '7. CIVIL STATUS:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, $employee['civil_status'] ?: 'Not provided');
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '8. CITIZENSHIP:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, '9. HEIGHT:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '10. WEIGHT:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, '11. BLOOD TYPE:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '12. GSIS ID NO.:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['gsis_number'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, '13. PAG-IBIG ID NO.:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, $employee['pagibig_number'] ?: 'Not provided');
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '14. PHILHEALTH NO.:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['philhealth_number'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, '15. SSS NO.:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, $employee['sss_number'] ?: 'Not provided');
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '16. TIN NO.:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['tin_number'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, '17. AGENCY EMPLOYEE NO.:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, $employee['employee_number'] ?: 'Not provided');
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '18. MOBILE NO.:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['contact_no'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, '19. EMAIL ADDRESS:');
+        $sheet->getStyle('E' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('F' . $row, $employee['email'] ?: 'Not provided');
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '20. RESIDENTIAL ADDRESS:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['home_address'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':N' . $row);
+        $row++;
+
+        // Family Background Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'III. FAMILY BACKGROUND');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, '21. SPOUSE\'S SURNAME:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['spouse_name'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, 'FIRST NAME:');
+        $sheet->setCellValue('F' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('F' . $row . ':H' . $row);
+
+        $sheet->setCellValue('I' . $row, 'MIDDLE NAME:');
+        $sheet->setCellValue('J' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('J' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'OCCUPATION:');
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('B' . $row . ':D' . $row);
+
+        $sheet->setCellValue('E' . $row, 'EMPLOYER/BUSINESS NAME:');
+        $sheet->setCellValue('F' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('F' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'BUSINESS ADDRESS:');
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER'); // This field is not stored in the database
+        $sheet->mergeCells('B' . $row . ':N' . $row);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'TEL./CELLPHONE NO.:');
+        $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
+        $sheet->setCellValue('B' . $row, $employee['spouse_contact_no'] ?: 'Not provided');
+        $sheet->mergeCells('B' . $row . ':N' . $row);
+        $row++;
+
+        // Educational Background Section (Following PDS format)
         if (!empty($educationalBackground)) {
-            $sheet->setCellValue('A' . $row, 'Educational Background');
-            $sheet->mergeCells('A' . $row . ':H' . $row);
+            $sheet->setCellValue('A' . $row, 'IV. EDUCATIONAL BACKGROUND');
+            $sheet->mergeCells('A' . $row . ':N' . $row);
             $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
             $row++;
-            
-            // Header row
-            $headers = ['Level', 'School Name', 'Degree/Course', 'From', 'To', 'Units Earned', 'Year Graduated', 'Honors'];
+
+            // Header row for educational background in PDS format
+            $headers = ['LEVEL', 'SCHOOL NAME', 'BASIC EDUCATION/DEGREE/COURSE (Write in full)', 'PERIOD OF ATTENDANCE', 'PERIOD OF ATTENDANCE', 'HIGHEST LEVEL/UNITS EARNED (if not graduated)', 'YEAR GRADUATED (if graduated)', 'SCHOLARSHIP/ACADEMIC HONORS RECEIVED'];
             $col = 'A';
             foreach ($headers as $header) {
                 $sheet->setCellValue($col . $row, $header);
@@ -241,7 +356,15 @@ if ($usePhpSpreadsheet) {
                 $col++;
             }
             $row++;
-            
+
+            // Sub-header for Period of Attendance
+            $sheet->setCellValue('D' . $row, 'FROM');
+            $sheet->setCellValue('E' . $row, 'TO');
+            $sheet->getStyle('D' . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle('E' . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle('D' . $row)->applyFromArray($borderStyle);
+            $sheet->getStyle('E' . $row)->applyFromArray($borderStyle);
+
             // Data rows
             foreach ($educationalBackground as $edu) {
                 $sheet->setCellValue('A' . $row, $edu['level'] ?: '-');
@@ -255,18 +378,47 @@ if ($usePhpSpreadsheet) {
                 $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($borderStyle);
                 $row++;
             }
-        $row++;
-    }
+            $row++;
+        }
 
-        // Work Experience
+        // Civil Service Eligibility Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'V. CIVIL SERVICE ELIGIBILITY');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+        $row++;
+
+        // Placeholder for Civil Service Eligibility - this would need to be added to the database
+        $headers = ['CAREER SERVICE/RA 1080 (BOARD/COMPETITIVE)', 'RATING', 'DATE OF EXAMINATION/TAKING', 'PLACE OF EXAMINATION', 'LICENSE (if applicable)', 'NUMBER', 'DATE OF VALIDITY'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . $row, $header);
+            $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
+            $col++;
+        }
+        $row++;
+
+        // Placeholder row for Civil Service Eligibility data
+        $sheet->setCellValue('A' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('C' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('D' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('E' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('F' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('G' . $row, 'PLACEHOLDER');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($borderStyle);
+        $row++;
+        $row++;
+
+        // Work Experience Section (Following PDS format)
         if (!empty($workExperience)) {
-            $sheet->setCellValue('A' . $row, 'Work Experience');
-            $sheet->mergeCells('A' . $row . ':I' . $row);
+            $sheet->setCellValue('A' . $row, 'VI. WORK EXPERIENCE');
+            $sheet->mergeCells('A' . $row . ':N' . $row);
             $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
             $row++;
-            
-            // Header row
-            $headers = ['From', 'To', 'Position Title', 'Department/Agency/Office/Company', 'Monthly Salary', 'Salary/Job/Pay Grade & Step', 'Status of Appointment', 'Gov\'t Service (Y/N)', 'Description of Duties'];
+
+            // Header row for work experience in PDS format
+            $headers = ['INCLUSIVE DATES', 'INCLUSIVE DATES', 'POSITION TITLE', 'DEPARTMENT/AGENCY/OFFICE/COMPANY', 'MONTHLY SALARY', 'SALARY/JOB/PAY GRADE (if applicable)', 'STATUS OF APPOINTMENT', 'GOVT. SERVICE (Y/N)'];
             $col = 'A';
             foreach ($headers as $header) {
                 $sheet->setCellValue($col . $row, $header);
@@ -275,7 +427,15 @@ if ($usePhpSpreadsheet) {
                 $col++;
             }
             $row++;
-            
+
+            // Sub-header for Inclusive Dates
+            $sheet->setCellValue('A' . $row, 'FROM');
+            $sheet->setCellValue('B' . $row, 'TO');
+            $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle('B' . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle('A' . $row)->applyFromArray($borderStyle);
+            $sheet->getStyle('B' . $row)->applyFromArray($borderStyle);
+
             // Data rows
             foreach ($workExperience as $we) {
                 $sheet->setCellValue('A' . $row, $we['date_from'] ? date('m/d/Y', strtotime($we['date_from'])) : '-');
@@ -286,185 +446,200 @@ if ($usePhpSpreadsheet) {
                 $sheet->setCellValue('F' . $row, $we['salary_grade_step'] ?: '-');
                 $sheet->setCellValue('G' . $row, $we['status_of_appointment'] ?: '-');
                 $sheet->setCellValue('H' . $row, $we['govt_service'] ?: 'YES');
-                $sheet->setCellValue('I' . $row, $we['description_of_duties'] ?: '-');
-                $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($borderStyle);
-                $sheet->getStyle('I' . $row)->getAlignment()->setWrapText(true);
+                $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($borderStyle);
                 $row++;
             }
             $row++;
         }
 
-        // Additional Information Section
-        if ($employee['trainings'] || $employee['leave_info'] || $employee['service_record']) {
-            $sheet->setCellValue('A' . $row, 'Additional Information');
-            $sheet->mergeCells('A' . $row . ':F' . $row);
-            $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
-            $row++;
-            
-            if ($employee['trainings']) {
-                $sheet->setCellValue('A' . $row, 'Trainings:');
-                $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
-                $sheet->setCellValue('B' . $row, $employee['trainings']);
-                $sheet->mergeCells('B' . $row . ':F' . $row);
-                $sheet->getStyle('B' . $row)->getAlignment()->setWrapText(true);
-                $row++;
-            }
-            
-            if ($employee['leave_info']) {
-                $sheet->setCellValue('A' . $row, 'Leave Information:');
-                $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
-                $sheet->setCellValue('B' . $row, $employee['leave_info']);
-                $sheet->mergeCells('B' . $row . ':F' . $row);
-                $sheet->getStyle('B' . $row)->getAlignment()->setWrapText(true);
-                $row++;
-            }
-            
-            if ($employee['service_record']) {
-                $sheet->setCellValue('A' . $row, 'Service Record:');
-                $sheet->getStyle('A' . $row)->applyFromArray($labelStyle);
-                $sheet->setCellValue('B' . $row, $employee['service_record']);
-                $sheet->mergeCells('B' . $row . ':F' . $row);
-                $sheet->getStyle('B' . $row)->getAlignment()->setWrapText(true);
-                $row++;
-            }
-            
-            $row++;
-        }
+        // Voluntary Work Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'VII. VOLUNTARY WORK OR INVOLVEMENT IN CIVIC / NON-GOVERNMENT / PEOPLE / VOLUNTARY ORGANIZATION(S)');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+        $row++;
 
-        // Appointment & Promotion History
-        if (!empty($appointments)) {
-            $sheet->setCellValue('A' . $row, 'Appointment & Promotion History');
-            $sheet->mergeCells('A' . $row . ':F' . $row);
-            $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
-            $row++;
-            
-            // Header row
-            $headers = ['Type', 'Position', 'Item #', 'Salary Grade', 'Date', 'Salary'];
-            $col = 'A';
-            foreach ($headers as $header) {
-                $sheet->setCellValue($col . $row, $header);
-                $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
-                $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
-                $col++;
-            }
-            $row++;
-            
-            // Data rows
-            foreach ($appointments as $a) {
-                $sheet->setCellValue('A' . $row, $a['type_label']);
-                $sheet->setCellValue('B' . $row, $a['position']);
-                $sheet->setCellValue('C' . $row, $a['item_number'] ?: '-');
-                $sheet->setCellValue('D' . $row, $a['salary_grade'] ?: '-');
-                $sheet->setCellValue('E' . $row, $a['appointment_date'] ?: '-');
-                $sheet->setCellValue('F' . $row, $a['salary'] ? number_format((float)$a['salary'], 2) : '-');
+        // Placeholder for Voluntary Work - this would need to be added to the database
+        $headers = ['ORGANIZATION', 'INCLUSIVE DATES (MM/DD/YYYY)', 'INCLUSIVE DATES (MM/DD/YYYY)', 'NUMBER OF HOURS', 'POSITION/NATURE OF WORK'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . $row, $header);
+            $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
+            $col++;
+        }
+        $row++;
+
+        // Sub-header for Inclusive Dates
+        $sheet->setCellValue('B' . $row, 'FROM');
+        $sheet->setCellValue('C' . $row, 'TO');
+        $sheet->getStyle('B' . $row)->applyFromArray($sectionStyle);
+        $sheet->getStyle('C' . $row)->applyFromArray($sectionStyle);
+        $sheet->getStyle('B' . $row)->applyFromArray($borderStyle);
+        $sheet->getStyle('C' . $row)->applyFromArray($borderStyle);
+
+        // Placeholder row for Voluntary Work data
+        $sheet->setCellValue('A' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('C' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('D' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('E' . $row, 'PLACEHOLDER');
+        $sheet->getStyle('A' . $row . ':E' . $row)->applyFromArray($borderStyle);
+        $row++;
+        $row++;
+
+        // Learning and Development Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'VIII. LEARNING AND DEVELOPMENT (L&D) INTERVENTIONS/TRAINING PROGRAMS');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+        $row++;
+
+        // Header row for L&D in PDS format
+        $headers = ['TITLE OF LEARNING AND DEVELOPMENT INTERVENTIONS/TRAINING PROGRAMS', 'INCLUSIVE DATES (MM/DD/YYYY)', 'INCLUSIVE DATES (MM/DD/YYYY)', 'NUMBER OF HOURS', 'TYPE OF LD (Managerial/Supervisory/Technical/etc.)', 'CONDUCTED/SPONSORED BY (Write in full)'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . $row, $header);
+            $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
+            $col++;
+        }
+        $row++;
+
+        // Sub-header for Inclusive Dates
+        $sheet->setCellValue('B' . $row, 'FROM');
+        $sheet->setCellValue('C' . $row, 'TO');
+        $sheet->getStyle('B' . $row)->applyFromArray($sectionStyle);
+        $sheet->getStyle('C' . $row)->applyFromArray($sectionStyle);
+        $sheet->getStyle('B' . $row)->applyFromArray($borderStyle);
+        $sheet->getStyle('C' . $row)->applyFromArray($borderStyle);
+
+        // Data rows for training records
+        if (!empty($trainingRecords)) {
+            foreach ($trainingRecords as $t) {
+                $sheet->setCellValue('A' . $row, $t['title']);
+                $sheet->setCellValue('B' . $row, $t['date_from'] ? date('m/d/Y', strtotime($t['date_from'])) : '-');
+                $sheet->setCellValue('C' . $row, $t['date_to'] ? date('m/d/Y', strtotime($t['date_to'])) : '-');
+                $sheet->setCellValue('D' . $row, $t['hours'] ?: '-');
+                $sheet->setCellValue('E' . $row, 'TECHNICAL'); // Default type
+                $sheet->setCellValue('F' . $row, $t['provider'] ?: '-');
                 $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($borderStyle);
                 $row++;
             }
+        } else {
+            // Placeholder row if no training records
+            $sheet->setCellValue('A' . $row, 'PLACEHOLDER');
+            $sheet->setCellValue('B' . $row, 'PLACEHOLDER');
+            $sheet->setCellValue('C' . $row, 'PLACEHOLDER');
+            $sheet->setCellValue('D' . $row, 'PLACEHOLDER');
+            $sheet->setCellValue('E' . $row, 'PLACEHOLDER');
+            $sheet->setCellValue('F' . $row, 'PLACEHOLDER');
+            $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($borderStyle);
             $row++;
         }
+        $row++;
 
-        // Training Records
-        if (!empty($trainingRecords)) {
-            $sheet->setCellValue('A' . $row, 'Training Records');
-            $sheet->mergeCells('A' . $row . ':G' . $row);
-            $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
-            $row++;
-            
-            // Header row
-            $headers = ['Title', 'Provider', 'Location', 'From', 'To', 'Hours', 'Remarks'];
-            $col = 'A';
-            foreach ($headers as $header) {
-                $sheet->setCellValue($col . $row, $header);
-                $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
-                $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
-                $col++;
-            }
-            $row++;
-            
-            // Data rows
-            foreach ($trainingRecords as $t) {
-                $sheet->setCellValue('A' . $row, $t['title']);
-                $sheet->setCellValue('B' . $row, $t['provider'] ?: '-');
-                $sheet->setCellValue('C' . $row, $t['location'] ?: '-');
-                $sheet->setCellValue('D' . $row, $t['date_from'] ?: '-');
-                $sheet->setCellValue('E' . $row, $t['date_to'] ?: '-');
-                $sheet->setCellValue('F' . $row, $t['hours'] ?: '-');
-                $sheet->setCellValue('G' . $row, $t['remarks'] ?: '-');
-                $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($borderStyle);
+        // Special Skills and Hobbies Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'IX. SPECIAL SKILLS/HOBBIES');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+        $row++;
+
+        // Placeholder for Special Skills - this would need to be added to the database
+        $headers = ['SPECIAL SKILLS/HOBBIES', 'REMARKS'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . $row, $header);
+            $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
+            $col++;
+        }
+        $row++;
+
+        // Placeholder row for Special Skills data
+        $sheet->setCellValue('A' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER');
+        $sheet->getStyle('A' . $row . ':B' . $row)->applyFromArray($borderStyle);
+        $row++;
+        $row++;
+
+        // Recognition/Awards Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'X. RECOGNITION/AWARDS');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+        $row++;
+
+        // Header row for awards in PDS format
+        $headers = ['RECOGNITION/AWARDS', 'YEAR CONFERRED', 'CONFERRED BY (Write in full)'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . $row, $header);
+            $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
+            $col++;
+        }
+        $row++;
+
+        // Data rows for awards records
+        if (!empty($awardRecords)) {
+            foreach ($awardRecords as $award) {
+                $sheet->setCellValue('A' . $row, $award['title']);
+                $sheet->setCellValue('B' . $row, $award['award_date'] ? date('Y', strtotime($award['award_date'])) : '-');
+                $sheet->setCellValue('C' . $row, $award['awarding_body'] ?: '-');
+                $sheet->getStyle('A' . $row . ':C' . $row)->applyFromArray($borderStyle);
                 $row++;
             }
+        } else {
+            // Placeholder row if no award records
+            $sheet->setCellValue('A' . $row, 'PLACEHOLDER');
+            $sheet->setCellValue('B' . $row, 'PLACEHOLDER');
+            $sheet->setCellValue('C' . $row, 'PLACEHOLDER');
+            $sheet->getStyle('A' . $row . ':C' . $row)->applyFromArray($borderStyle);
             $row++;
         }
+        $row++;
 
-        // Leave Records
-        if (!empty($leaveRecords)) {
-            $sheet->setCellValue('A' . $row, 'Leave Records');
-            $sheet->mergeCells('A' . $row . ':E' . $row);
-            $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
-            $row++;
-            
-            // Header row
-            $headers = ['Type', 'From', 'To', 'Days', 'Remarks'];
-            $col = 'A';
-            foreach ($headers as $header) {
-                $sheet->setCellValue($col . $row, $header);
-                $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
-                $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
-                $col++;
-            }
-            $row++;
-            
-            // Data rows
-            foreach ($leaveRecords as $l) {
-                $sheet->setCellValue('A' . $row, $l['leave_type']);
-                $sheet->setCellValue('B' . $row, $l['date_from'] ?: '-');
-                $sheet->setCellValue('C' . $row, $l['date_to'] ?: '-');
-                $sheet->setCellValue('D' . $row, $l['days'] ?: '-');
-                $sheet->setCellValue('E' . $row, $l['remarks'] ?: '-');
-                $sheet->getStyle('A' . $row . ':E' . $row)->applyFromArray($borderStyle);
-                $row++;
-            }
-            $row++;
-        }
+        // Other Information Section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'XI. OTHER INFORMATION');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
+        $row++;
 
-        // Service Records
-        if (!empty($serviceRecords)) {
-            $sheet->setCellValue('A' . $row, 'Service Record Entries');
-            $sheet->mergeCells('A' . $row . ':N' . $row);
-            $sheet->getStyle('A' . $row)->applyFromArray($sectionStyle);
-            $row++;
-            
-            // Header row
-            $headers = ['From', 'To', 'Designation', 'Status', 'Salary', 'Place of', 'Branch', 'Assignment', 'LV ABS', 'W/O Pay', 'Separation Date', 'Separation Cause', 'Remarks'];
-            $col = 'A';
-            foreach ($headers as $header) {
-                $sheet->setCellValue($col . $row, $header);
-                $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
-                $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
-                $col++;
-            }
-            $row++;
-            
-            // Data rows
-            foreach ($serviceRecords as $s) {
-                $sheet->setCellValue('A' . $row, $s['date_from'] ?: '-');
-                $sheet->setCellValue('B' . $row, $s['date_to'] ?: '-');
-                $sheet->setCellValue('C' . $row, $s['position'] ?: '-');
-                $sheet->setCellValue('D' . $row, $s['status'] ?: '-');
-                $sheet->setCellValue('E' . $row, $s['salary'] ? number_format((float)$s['salary'], 2) : '-');
-                $sheet->setCellValue('F' . $row, $s['place_of'] ?: '-');
-                $sheet->setCellValue('G' . $row, $s['branch'] ?: '-');
-                $sheet->setCellValue('H' . $row, $s['assignment'] ?: '-');
-                $sheet->setCellValue('I' . $row, $s['lv_abs'] ?: '-');
-                $sheet->setCellValue('J' . $row, $s['wo_pay'] ?: '-');
-                $sheet->setCellValue('K' . $row, $s['separation_date'] ?: '-');
-                $sheet->setCellValue('L' . $row, $s['separation_cause'] ?: '-');
-                $sheet->setCellValue('M' . $row, $s['remarks'] ?: '-');
-                $sheet->getStyle('A' . $row . ':M' . $row)->applyFromArray($borderStyle);
-                $row++;
-            }
-            $row++;
+        // Placeholder for Other Information - this would need to be added to the database
+        $headers = ['OTHER INFORMATION', 'REMARKS'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . $row, $header);
+            $sheet->getStyle($col . $row)->applyFromArray($sectionStyle);
+            $sheet->getStyle($col . $row)->applyFromArray($borderStyle);
+            $col++;
         }
+        $row++;
+
+        // Placeholder row for Other Information data
+        $sheet->setCellValue('A' . $row, 'PLACEHOLDER');
+        $sheet->setCellValue('B' . $row, 'PLACEHOLDER');
+        $sheet->getStyle('A' . $row . ':B' . $row)->applyFromArray($borderStyle);
+        $row++;
+        $row++;
+
+        // Signature section (Following PDS format)
+        $sheet->setCellValue('A' . $row, 'I CERTIFY, under oath, that I have personally accomplished this CS Form 212, the information herein is true and correct based on the original documents issued, and that I authorize the agency/head of office to verify/validate the contents hereof. I agree that any misrepresentation made in this document and/or any falsified information shall cause the cancellation of my application and shall be grounds for disciplinary and/or criminal action.');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->getAlignment()->setWrapText(true);
+        $row += 3;
+
+        $sheet->setCellValue('A' . $row, '_______________________________');
+        $sheet->setCellValue('J' . $row, '_______________________________');
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Signature over Printed Name');
+        $sheet->setCellValue('J' . $row, 'Date Accomplished');
+        $row += 2;
+
+        // Additional notes section
+        $sheet->setCellValue('A' . $row, 'Note: This CS Form 212 must be accomplished in a legible manner when filled out manually. Use only a black or blue ballpen. Erasures and alterations are not allowed.');
+        $sheet->mergeCells('A' . $row . ':N' . $row);
+        $sheet->getStyle('A' . $row)->getAlignment()->setWrapText(true);
+        $row++;
 
         // Footer
         $sheet->setCellValue('A' . $row, 'Generated on: ' . date('F d, Y h:i A'));
@@ -473,19 +648,26 @@ if ($usePhpSpreadsheet) {
         $sheet->getStyle('F' . $row)->getFont()->setItalic(true);
 
         // Auto-size columns
-        foreach (range('A', 'H') as $col) {
+        foreach (range('A', 'N') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        // Set column widths for better readability
-        $sheet->getColumnDimension('A')->setWidth(20);
-        $sheet->getColumnDimension('B')->setWidth(30);
-        $sheet->getColumnDimension('C')->setWidth(20);
-        $sheet->getColumnDimension('D')->setWidth(15);
-        $sheet->getColumnDimension('E')->setWidth(15);
-        $sheet->getColumnDimension('F')->setWidth(15);
-        $sheet->getColumnDimension('G')->setWidth(30);
-        $sheet->getColumnDimension('H')->setWidth(30);
+        // Set column widths optimized for legal size paper (8.5 x 14 inches)
+        // This allows for better utilization of the wider paper format while keeping cells appropriately sized
+        $sheet->getColumnDimension('A')->setWidth(8);
+        $sheet->getColumnDimension('B')->setWidth(12);
+        $sheet->getColumnDimension('C')->setWidth(12);
+        $sheet->getColumnDimension('D')->setWidth(8);
+        $sheet->getColumnDimension('E')->setWidth(8);
+        $sheet->getColumnDimension('F')->setWidth(10);
+        $sheet->getColumnDimension('G')->setWidth(10);
+        $sheet->getColumnDimension('H')->setWidth(10);
+        $sheet->getColumnDimension('I')->setWidth(10);
+        $sheet->getColumnDimension('J')->setWidth(10);
+        $sheet->getColumnDimension('K')->setWidth(10);
+        $sheet->getColumnDimension('L')->setWidth(10);
+        $sheet->getColumnDimension('M')->setWidth(10);
+        $sheet->getColumnDimension('N')->setWidth(10);
 
         // Output file
         $filename = 'Employee_Record_' . preg_replace('/[^A-Za-z0-9_]/', '_', $fullName) . '_' . date('Ymd') . '.xlsx';

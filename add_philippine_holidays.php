@@ -1,36 +1,12 @@
 <?php
 /**
- * Script to add all Philippine holidays to the calendar
- * Run this once to populate the calendar with all Philippine holidays
+ * Add Philippine Holidays to Calendar
+ * This script adds all Philippine holidays to the calendar_events table
  */
 
-require_once 'auth.php';
-require_admin_login();
 require_once 'db.php';
 
-// Check if calendar_events table exists, create if not
-try {
-    $pdo->query("SELECT 1 FROM calendar_events LIMIT 1");
-} catch (PDOException $e) {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS calendar_events (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,
-            description TEXT DEFAULT NULL,
-            event_date DATE NOT NULL,
-            event_time TIME DEFAULT NULL,
-            event_type ENUM('activity', 'holiday', 'season', 'reminder') DEFAULT 'activity',
-            reminder_sent BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_event_date (event_date),
-            INDEX idx_event_type (event_type),
-            INDEX idx_reminder (reminder_sent, event_date)
-        )
-    ");
-}
-
-// Function to calculate Easter date (for movable holidays)
+// Function to calculate Easter date
 function calculateEaster($year) {
     $a = $year % 19;
     $b = floor($year / 100);
@@ -61,67 +37,98 @@ function getLastMondayOfAugust($year) {
 $currentYear = date('Y');
 $nextYear = $currentYear + 1;
 
-// Philippine Holidays (Regular and Special Non-Working Days)
+// Complete Philippine Holidays List
 $holidays = [];
 
-// Fixed Holidays
-$holidays[] = ['title' => 'New Year\'s Day', 'date' => "$currentYear-01-01", 'type' => 'holiday'];
-$holidays[] = ['title' => 'EDSA People Power Revolution Anniversary', 'date' => "$currentYear-02-25", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Araw ng Kagitingan (Day of Valor)', 'date' => "$currentYear-04-09", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Labor Day', 'date' => "$currentYear-05-01", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Independence Day', 'date' => "$currentYear-06-12", 'type' => 'holiday'];
-$holidays[] = ['title' => 'National Heroes Day', 'date' => getLastMondayOfAugust($currentYear), 'type' => 'holiday'];
-$holidays[] = ['title' => 'Bonifacio Day', 'date' => "$currentYear-11-30", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Rizal Day', 'date' => "$currentYear-12-30", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Christmas Day', 'date' => "$currentYear-12-25", 'type' => 'holiday'];
+// Function to add holidays for a specific year
+$addYearHolidays = function($year) use (&$holidays) {
+    // REGULAR HOLIDAYS (Fixed Dates)
+    $holidays[] = ['title' => 'New Year\'s Day', 'date' => "$year-01-01", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'EDSA People Power Revolution Anniversary', 'date' => "$year-02-25", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Araw ng Kagitingan (Day of Valor)', 'date' => "$year-04-09", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Labor Day', 'date' => "$year-05-01", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Independence Day', 'date' => "$year-06-12", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'National Heroes Day', 'date' => getLastMondayOfAugust($year), 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Bonifacio Day', 'date' => "$year-11-30", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Rizal Day', 'date' => "$year-12-30", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Christmas Day', 'date' => "$year-12-25", 'type' => 'holiday'];
+    
+    // SPECIAL NON-WORKING DAYS (Fixed Dates)
+    $holidays[] = ['title' => 'All Saints\' Day', 'date' => "$year-11-01", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'All Souls\' Day', 'date' => "$year-11-02", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Christmas Eve', 'date' => "$year-12-24", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'New Year\'s Eve', 'date' => "$year-12-31", 'type' => 'holiday'];
+    
+    // MOVABLE HOLIDAYS (Based on Easter)
+    $easter = calculateEaster($year);
+    $maundyThursday = clone $easter;
+    $maundyThursday->modify('-3 days');
+    $holidays[] = ['title' => 'Maundy Thursday', 'date' => $maundyThursday->format('Y-m-d'), 'type' => 'holiday'];
+    
+    $goodFriday = clone $easter;
+    $goodFriday->modify('-2 days');
+    $holidays[] = ['title' => 'Good Friday', 'date' => $goodFriday->format('Y-m-d'), 'type' => 'holiday'];
+    
+    $blackSaturday = clone $easter;
+    $blackSaturday->modify('-1 days');
+    $holidays[] = ['title' => 'Black Saturday', 'date' => $blackSaturday->format('Y-m-d'), 'type' => 'holiday'];
+    
+    // ADDITIONAL IMPORTANT DATES
+    $holidays[] = ['title' => 'Ninoy Aquino Day', 'date' => "$year-08-21", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Constitution Day', 'date' => "$year-02-02", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'National Flag Day', 'date' => "$year-05-28", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Philippine-Spanish Friendship Day', 'date' => "$year-06-30", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'National Teachers\' Day', 'date' => "$year-10-05", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'United Nations Day', 'date' => "$year-10-24", 'type' => 'holiday'];
+    
+    // REGIONAL HOLIDAYS (Important ones)
+    $holidays[] = ['title' => 'Araw ng Maynila (Manila Day)', 'date' => "$year-06-24", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Araw ng Quezon (Quezon Day)', 'date' => "$year-08-19", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Araw ng Davao (Davao Day)', 'date' => "$year-03-16", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Araw ng Cebu (Cebu Day)', 'date' => "$year-04-07", 'type' => 'holiday'];
+    
+    // CULTURAL & RELIGIOUS HOLIDAYS
+    $holidays[] = ['title' => 'Feast of the Black Nazarene', 'date' => "$year-01-09", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Feast of Our Lady of Lourdes', 'date' => "$year-02-11", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Feast of St. Joseph', 'date' => "$year-03-19", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Feast of the Santo Niño', 'date' => "$year-01-15", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Feast of Our Lady of Peñafrancia', 'date' => "$year-09-08", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Feast of the Immaculate Conception', 'date' => "$year-12-08", 'type' => 'holiday'];
+    
+    // SEASONAL & CULTURAL EVENTS
+    $holidays[] = ['title' => 'Sinulog Festival (Cebu)', 'date' => "$year-01-15", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Ati-Atihan Festival (Aklan)', 'date' => "$year-01-15", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Dinagyang Festival (Iloilo)', 'date' => "$year-01-25", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Panagbenga Festival (Baguio)', 'date' => "$year-02-01", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Moriones Festival (Marinduque)', 'date' => $goodFriday->format('Y-m-d'), 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Kadayawan Festival (Davao)', 'date' => "$year-08-15", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'MassKara Festival (Bacolod)', 'date' => "$year-10-19", 'type' => 'holiday'];
+    $holidays[] = ['title' => 'Higantes Festival (Angono)', 'date' => "$year-11-23", 'type' => 'holiday'];
+    
+    // CHINESE NEW YEAR (varies by year, using approximate dates)
+    // 2025: January 29, 2026: February 17, 2027: February 6
+    if ($year == 2025) {
+        $holidays[] = ['title' => 'Chinese New Year', 'date' => "$year-01-29", 'type' => 'holiday'];
+    } elseif ($year == 2026) {
+        $holidays[] = ['title' => 'Chinese New Year', 'date' => "$year-02-17", 'type' => 'holiday'];
+    } elseif ($year == 2027) {
+        $holidays[] = ['title' => 'Chinese New Year', 'date' => "$year-02-06", 'type' => 'holiday'];
+    } else {
+        // Default to late January for other years
+        $holidays[] = ['title' => 'Chinese New Year', 'date' => "$year-01-29", 'type' => 'holiday'];
+    }
+};
 
-// Movable Holidays (based on Easter)
-$easter = calculateEaster($currentYear);
-$holidays[] = ['title' => 'Maundy Thursday', 'date' => $easter->modify('-3 days')->format('Y-m-d'), 'type' => 'holiday'];
-$easter = calculateEaster($currentYear);
-$holidays[] = ['title' => 'Good Friday', 'date' => $easter->modify('-2 days')->format('Y-m-d'), 'type' => 'holiday'];
-$easter = calculateEaster($currentYear);
-$holidays[] = ['title' => 'Black Saturday', 'date' => $easter->modify('-1 days')->format('Y-m-d'), 'type' => 'holiday'];
-$easter = calculateEaster($currentYear);
-$holidays[] = ['title' => 'Easter Sunday', 'date' => $easter->format('Y-m-d'), 'type' => 'holiday'];
-
-// Special Non-Working Days
-$holidays[] = ['title' => 'Chinese New Year', 'date' => "$currentYear-01-29", 'type' => 'holiday']; // Approximate, varies yearly
-$holidays[] = ['title' => 'People Power Revolution Anniversary', 'date' => "$currentYear-02-25", 'type' => 'holiday'];
-$holidays[] = ['title' => 'All Saints\' Day', 'date' => "$currentYear-11-01", 'type' => 'holiday'];
-$holidays[] = ['title' => 'All Souls\' Day', 'date' => "$currentYear-11-02", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Christmas Eve', 'date' => "$currentYear-12-24", 'type' => 'holiday'];
-$holidays[] = ['title' => 'New Year\'s Eve', 'date' => "$currentYear-12-31", 'type' => 'holiday'];
-
-// Add next year's fixed holidays too
-$holidays[] = ['title' => 'New Year\'s Day', 'date' => "$nextYear-01-01", 'type' => 'holiday'];
-$holidays[] = ['title' => 'EDSA People Power Revolution Anniversary', 'date' => "$nextYear-02-25", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Araw ng Kagitingan (Day of Valor)', 'date' => "$nextYear-04-09", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Labor Day', 'date' => "$nextYear-05-01", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Independence Day', 'date' => "$nextYear-06-12", 'type' => 'holiday'];
-$holidays[] = ['title' => 'National Heroes Day', 'date' => getLastMondayOfAugust($nextYear), 'type' => 'holiday'];
-$holidays[] = ['title' => 'Bonifacio Day', 'date' => "$nextYear-11-30", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Rizal Day', 'date' => "$nextYear-12-30", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Christmas Day', 'date' => "$nextYear-12-25", 'type' => 'holiday'];
-
-// Next year's movable holidays
-$easterNext = calculateEaster($nextYear);
-$holidays[] = ['title' => 'Maundy Thursday', 'date' => $easterNext->modify('-3 days')->format('Y-m-d'), 'type' => 'holiday'];
-$easterNext = calculateEaster($nextYear);
-$holidays[] = ['title' => 'Good Friday', 'date' => $easterNext->modify('-2 days')->format('Y-m-d'), 'type' => 'holiday'];
-$easterNext = calculateEaster($nextYear);
-$holidays[] = ['title' => 'Black Saturday', 'date' => $easterNext->modify('-1 days')->format('Y-m-d'), 'type' => 'holiday'];
-$easterNext = calculateEaster($nextYear);
-$holidays[] = ['title' => 'Easter Sunday', 'date' => $easterNext->format('Y-m-d'), 'type' => 'holiday'];
-
-$holidays[] = ['title' => 'All Saints\' Day', 'date' => "$nextYear-11-01", 'type' => 'holiday'];
-$holidays[] = ['title' => 'All Souls\' Day', 'date' => "$nextYear-11-02", 'type' => 'holiday'];
-$holidays[] = ['title' => 'Christmas Eve', 'date' => "$nextYear-12-24", 'type' => 'holiday'];
-$holidays[] = ['title' => 'New Year\'s Eve', 'date' => "$nextYear-12-31", 'type' => 'holiday'];
+// Add holidays for current year and next year
+$addYearHolidays($currentYear);
+$addYearHolidays($nextYear);
 
 // Insert holidays (skip duplicates)
 $inserted = 0;
 $skipped = 0;
+
+echo "Adding Philippine Holidays to Calendar...\n";
+echo "==========================================\n\n";
 
 foreach ($holidays as $holiday) {
     try {
@@ -146,13 +153,16 @@ foreach ($holidays as $holiday) {
             ':type' => $holiday['type']
         ]);
         $inserted++;
+        echo "✓ Added: {$holiday['title']} - {$holiday['date']}\n";
     } catch (PDOException $e) {
-        // Skip on error
         $skipped++;
+        echo "✗ Error adding {$holiday['title']}: " . $e->getMessage() . "\n";
     }
 }
 
-echo "Philippine holidays added successfully!\n";
+echo "\n==========================================\n";
+echo "✅ COMPLETED!\n";
 echo "Inserted: $inserted holidays\n";
 echo "Skipped (duplicates): $skipped holidays\n";
-
+echo "\nThe calendar now contains Philippine holidays for $currentYear and $nextYear.\n";
+echo "You can view them in the dashboard calendar.\n";

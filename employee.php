@@ -4,12 +4,63 @@ require_admin_login();
 require_once 'db.php';
 require_once 'activity_logger.php';
 
-if (!isset($_GET['id']) || !ctype_digit($_GET['id'])) {
-    header('Location: index.php');
+/**
+ * Enhanced Employee ID Parameter Validation and Processing
+ *
+ * This section handles the employee ID parameter with professional-grade
+ * validation, security checks, and error handling.
+ */
+
+// Initialize error tracking
+$validationError = null;
+$employeeId = null;
+
+// Validate and sanitize employee ID parameter
+if (!isset($_GET['id']) || $_GET['id'] === '') {
+    $validationError = 'Employee ID parameter is required.';
+} else {
+    $rawId = trim($_GET['id']);
+
+    // Validate format: must be numeric and positive integer
+    if (!ctype_digit($rawId)) {
+        $validationError = 'Invalid employee ID format. ID must be a positive integer.';
+    } else {
+        // Convert to integer and validate range
+        $employeeId = (int)$rawId;
+
+        // Validate reasonable range (1 to PHP_INT_MAX, but cap at 999999999 for practical purposes)
+        if ($employeeId <= 0) {
+            $validationError = 'Employee ID must be a positive number.';
+        } elseif ($employeeId > 999999999) {
+            $validationError = 'Employee ID exceeds maximum allowed value.';
+        } elseif (strlen($rawId) > 10) {
+            // Additional check for extremely long numeric strings
+            $validationError = 'Employee ID is too long.';
+        }
+    }
+}
+
+// If validation failed, redirect with appropriate error handling
+if ($validationError !== null) {
+    // Log the validation error for security monitoring
+    if (function_exists('logActivity')) {
+        $invalidId = $_GET['id'] ?? 'not_provided';
+        logActivity(
+            'INVALID_EMPLOYEE_ID_ACCESS',
+            "Invalid employee ID access attempt. ID: {$invalidId}, Error: {$validationError}",
+            'employees',
+            null
+        );
+    }
+
+    // Set proper HTTP status code and redirect
+    http_response_code(400); // Bad Request
+    header('Location: index.php?error=invalid_employee_id');
     exit;
 }
 
-$id = (int)$_GET['id'];
+// Assign validated ID
+$id = $employeeId;
 
 $successMessage = '';
 $errorMessage = '';
@@ -27,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Personal info
         $birthdate = trim($_POST['birthdate'] ?? '');
         $homeAddress = trim($_POST['home_address'] ?? '');
+        $office = trim($_POST['office'] ?? '');
         $contactNo = trim($_POST['contact_no'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $civilStatus = trim($_POST['civil_status'] ?? '');
@@ -43,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Additional
         $trainings = trim($_POST['trainings'] ?? '');
-        $designations = trim($_POST['designations'] ?? '');
         $leaveInfo = trim($_POST['leave_info'] ?? '');
         $serviceRecord = trim($_POST['service_record'] ?? '');
         $employmentStatus = trim($_POST['employment_status'] ?? '');
@@ -71,6 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     middle_name = :middle_name,
                     birthdate = :birthdate,
                     home_address = :home_address,
+                    office = :office,
                     contact_no = :contact_no,
                     email = :email,
                     civil_status = :civil_status,
@@ -83,7 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     sss_number = :sss_number,
                     gsis_number = :gsis_number,
                     trainings = :trainings,
-                    designations = :designations,
                     leave_info = :leave_info,
                     service_record = :service_record,
                     employment_status = :employment_status
@@ -95,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtCurrent->execute([':id' => $id]);
             $currentEmployee = $stmtCurrent->fetch();
             $oldStatus = $currentEmployee['employment_status'] ?? '';
-            
+
             $stmtUpdate->execute([
                 ':id' => $id,
                 ':last_name' => $lastName,
@@ -103,6 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':middle_name' => $middleName !== '' ? $middleName : null,
                 ':birthdate' => $birthdate !== '' ? $birthdate : null,
                 ':home_address' => $homeAddress !== '' ? $homeAddress : null,
+                ':office' => $office !== '' ? $office : null,
                 ':contact_no' => $contactNo !== '' ? $contactNo : null,
                 ':email' => $email !== '' ? $email : null,
                 ':civil_status' => $civilStatus !== '' ? $civilStatus : null,
@@ -115,7 +167,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':sss_number' => $sssNumber !== '' ? $sssNumber : null,
                 ':gsis_number' => $gsisNumber !== '' ? $gsisNumber : null,
                 ':trainings' => $trainings !== '' ? $trainings : null,
-                ':designations' => $designations !== '' ? $designations : null,
                 ':leave_info' => $leaveInfo !== '' ? $leaveInfo : null,
                 ':service_record' => $serviceRecord !== '' ? $serviceRecord : null,
                 ':employment_status' => $employmentStatus !== '' ? $employmentStatus : null,
@@ -125,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logActivity('employee_update', "Employee updated: {$lastName}, {$firstName}", 'employees', $id);
 
             // Check if status changed to RETIRED or RESIGNED
-            if ((strcasecmp($employmentStatus, 'RETIRED') === 0 || strcasecmp($employmentStatus, 'RESIGNED') === 0) && 
+            if ((strcasecmp($employmentStatus, 'RETIRED') === 0 || strcasecmp($employmentStatus, 'RESIGNED') === 0) &&
                 strcasecmp($oldStatus, 'RETIRED') !== 0 && strcasecmp($oldStatus, 'RESIGNED') !== 0) {
                 $statusText = strcasecmp($employmentStatus, 'RETIRED') === 0 ? 'RETIRED' : 'RESIGNED';
                 $successMessage = "Employee details have been updated. Employee status changed to {$statusText} and has been moved to the Inactive Employee section.";
@@ -160,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtCurrent->execute([':id' => $id]);
             $currentEmployee = $stmtCurrent->fetch();
             $oldStatus = $currentEmployee['employment_status'] ?? '';
-            
+
             $stmt = $pdo->prepare('UPDATE employees SET employment_status = :status WHERE id = :id');
             $stmt->execute([
                 ':status' => $newStatus !== '' ? $newStatus : null,
@@ -172,20 +223,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logActivity('employee_update', "Employment status updated to: {$newStatus}{$statusChange}", 'employees', $id);
 
             // Check if status changed to RETIRED or RESIGNED
-            if ((strcasecmp($newStatus, 'RETIRED') === 0 || strcasecmp($newStatus, 'RESIGNED') === 0) && 
+            if ((strcasecmp($newStatus, 'RETIRED') === 0 || strcasecmp($newStatus, 'RESIGNED') === 0) &&
                 strcasecmp($oldStatus, 'RETIRED') !== 0 && strcasecmp($oldStatus, 'RESIGNED') !== 0) {
                 $statusText = strcasecmp($newStatus, 'RETIRED') === 0 ? 'RETIRED' : 'RESIGNED';
                 $successMessage = "Employment status updated to {$statusText}. Employee has been moved to the Inactive Employee section.";
             } else {
                 $successMessage = 'Employment status updated successfully.';
             }
-            
+
             // Reload employee data
             $stmt = $pdo->prepare('SELECT * FROM employees WHERE id = :id');
             $stmt->execute([':id' => $id]);
             $employee = $stmt->fetch();
         } catch (PDOException $e) {
             $errorMessage = 'Error updating employment status: ' . htmlspecialchars($e->getMessage());
+        }
+    } elseif ($action === 'update_employee_id') {
+        $newEmployeeId = trim($_POST['employee_number'] ?? '');
+
+        try {
+            $stmt = $pdo->prepare('UPDATE employees SET employee_number = :employee_number WHERE id = :id');
+            $stmt->execute([
+                ':employee_number' => $newEmployeeId !== '' ? $newEmployeeId : null,
+                ':id' => $id
+            ]);
+
+            $successMessage = $newEmployeeId !== ''
+                ? 'Employee ID updated successfully.'
+                : 'Employee ID removed successfully.';
+
+            // Reload employee data
+            $stmt = $pdo->prepare('SELECT * FROM employees WHERE id = :id');
+            $stmt->execute([':id' => $id]);
+            $employee = $stmt->fetch();
+        } catch (PDOException $e) {
+            $errorMessage = 'Error updating employee ID: ' . htmlspecialchars($e->getMessage());
+        }
+    } elseif ($action === 'update_office') {
+        $newOffice = trim($_POST['office'] ?? '');
+
+        try {
+            $stmt = $pdo->prepare('UPDATE employees SET office = :office WHERE id = :id');
+            $stmt->execute([
+                ':office' => $newOffice !== '' ? $newOffice : null,
+                ':id' => $id
+            ]);
+
+            // Log activity
+            logActivity('employee_update', "Office / Department updated to: {$newOffice}", 'employees', $id);
+            $successMessage = 'Office / Department updated successfully.';
+
+            // Reload employee data
+            $stmt = $pdo->prepare('SELECT * FROM employees WHERE id = :id');
+            $stmt->execute([':id' => $id]);
+            $employee = $stmt->fetch();
+        } catch (PDOException $e) {
+            $errorMessage = 'Error updating office / department: ' . htmlspecialchars($e->getMessage());
         }
     } elseif ($action === 'add_training') {
         $title = trim($_POST['training_title'] ?? '');
@@ -741,13 +834,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Reload main employee record
-$stmt = $pdo->prepare('SELECT * FROM employees WHERE id = :id');
-$stmt->execute([':id' => $id]);
-$employee = $stmt->fetch();
+/**
+ * Load Employee Record with Enhanced Error Handling
+ *
+ * Fetches the employee record and validates its existence
+ * with proper error handling and logging.
+ */
+try {
+    $stmt = $pdo->prepare('SELECT * FROM employees WHERE id = :id');
+    $stmt->execute([':id' => $id]);
+    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$employee) {
-    header('Location: index.php');
+    // Validate employee record exists
+    if (!$employee || empty($employee)) {
+        // Log access attempt to non-existent employee
+        if (function_exists('logActivity')) {
+            logActivity(
+                'EMPLOYEE_NOT_FOUND',
+                "Access attempt to non-existent employee with ID: {$id}",
+                'employees',
+                $id
+            );
+        }
+
+        // Set proper HTTP status code and redirect
+        http_response_code(404); // Not Found
+        header('Location: index.php?error=employee_not_found');
+        exit;
+    }
+
+    // Additional validation: ensure employee record has required fields
+    if (!isset($employee['id']) || $employee['id'] != $id) {
+        // Data integrity check failed
+        $retrievedId = $employee['id'] ?? 'missing';
+        if (function_exists('logActivity')) {
+            logActivity(
+                'DATA_INTEGRITY_ERROR',
+                "Data integrity issue detected. Expected ID: {$id}, Retrieved ID: {$retrievedId}",
+                'employees',
+                $id
+            );
+        }
+
+        http_response_code(500); // Internal Server Error
+        header('Location: index.php?error=data_integrity_issue');
+        exit;
+    }
+
+} catch (PDOException $e) {
+    // Database error handling
+    error_log('Database error in employee.php: ' . $e->getMessage());
+
+    if (function_exists('logActivity')) {
+        logActivity(
+            'DATABASE_ERROR',
+            "Database error while loading employee ID {$id}: " . $e->getMessage(),
+            'employees',
+            $id
+        );
+    }
+
+    http_response_code(500); // Internal Server Error
+    header('Location: index.php?error=database_error');
+    exit;
+} catch (Exception $e) {
+    // General error handling
+    error_log('Unexpected error in employee.php: ' . $e->getMessage());
+
+    if (function_exists('logActivity')) {
+        logActivity(
+            'UNEXPECTED_ERROR',
+            "Unexpected error while loading employee ID {$id}: " . $e->getMessage(),
+            'employees',
+            $id
+        );
+    }
+
+    http_response_code(500); // Internal Server Error
+    header('Location: index.php?error=unexpected_error');
     exit;
 }
 
@@ -836,13 +1000,22 @@ $firstLetter = strtoupper(substr($employee['last_name'], 0, 1));
                     <div>
                         <h1 class="h2 mb-1 fw-bold text-dark"><?= htmlspecialchars($fullName) ?></h1>
                         <div class="employee-meta">
-                            <span class="badge bg-primary me-2">
+                            <span
+                                class="badge bg-primary me-2 cursor-pointer employee-id-badge"
+                                data-bs-toggle="modal"
+                                data-bs-target="#changeEmployeeIdModal"
+                                title="Click to change employee ID"
+                                style="cursor: pointer; transition: all 0.2s;"
+                                onmouseover="this.style.transform='scale(1.05)'"
+                                onmouseout="this.style.transform='scale(1)'"
+                            >
                                 <i class="fas fa-id-badge me-1"></i>
                                 ID: <?= htmlspecialchars($employee['employee_number'] ?: 'Not assigned') ?>
+                                <i class="fas fa-edit ms-1" style="font-size: 0.7em; opacity: 0.8;"></i>
                             </span>
                             <?php if ($employee['employment_status']): ?>
                                 <span
-                                    class="badge bg-success cursor-pointer employment-status-badge"
+                                    class="badge bg-success cursor-pointer employment-status-badge me-2"
                                     data-bs-toggle="modal"
                                     data-bs-target="#changeEmploymentStatusModal"
                                     title="Click to change employment status"
@@ -856,13 +1029,26 @@ $firstLetter = strtoupper(substr($employee['last_name'], 0, 1));
                                 </span>
                             <?php else: ?>
                                 <button
-                                class="btn btn-sm btn-success text-white"
+                                class="btn btn-sm btn-success text-white me-2"
                                     data-bs-toggle="modal"
                                     data-bs-target="#changeEmploymentStatusModal"
                                 >
                                     <i class="fas fa-plus me-1"></i>Set Status
                                 </button>
                             <?php endif; ?>
+                            <span
+                                class="badge bg-success cursor-pointer me-2"
+                                data-bs-toggle="modal"
+                                data-bs-target="#changeOfficeModal"
+                                title="Click to change office / department"
+                                style="cursor: pointer; transition: all 0.2s;"
+                                onmouseover="this.style.transform='scale(1.05)'"
+                                onmouseout="this.style.transform='scale(1)'"
+                            >
+                                <i class="fas fa-building me-1"></i>
+                                <?= htmlspecialchars($employee['office'] ?: 'Not assigned') ?>
+                                <i class="fas fa-edit ms-1" style="font-size: 0.7em; opacity: 0.8;"></i>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -996,6 +1182,22 @@ $firstLetter = strtoupper(substr($employee['last_name'], 0, 1));
                             name="home_address"
                             value="<?= htmlspecialchars($employee['home_address'] ?? '') ?>"
                         >
+                    </div>
+                    <div class="col-md-4">
+                        <label for="office" class="form-label">Office / Department</label>
+                        <select
+                            class="form-select"
+                            id="office"
+                            name="office"
+                        >
+                            <option value="">Select Office / Department</option>
+                            <option value="LTS" <?= ($employee['office'] ?? '') === 'LTS' ? 'selected' : '' ?>>LTS</option>
+                            <option value="LEGAL" <?= ($employee['office'] ?? '') === 'LEGAL' ? 'selected' : '' ?>>LEGAL</option>
+                            <option value="DARAB" <?= ($employee['office'] ?? '') === 'DARAB' ? 'selected' : '' ?>>DARAB</option>
+                            <option value="PBDD" <?= ($employee['office'] ?? '') === 'PBDD' ? 'selected' : '' ?>>PBDD</option>
+                            <option value="OPARPO" <?= ($employee['office'] ?? '') === 'OPARPO' ? 'selected' : '' ?>>OPARPO</option>
+                            <option value="STOD" <?= ($employee['office'] ?? '') === 'STOD' ? 'selected' : '' ?>>STOD</option>
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label for="contact_no" class="form-label">Contact #</label>
@@ -1261,6 +1463,10 @@ $firstLetter = strtoupper(substr($employee['last_name'], 0, 1));
                         <?php endif; ?>
                     </td>
                 </tr>
+                <tr>
+                    <td class="profile-label"><i class="fas fa-building me-2 text-muted"></i>Office / Department</td>
+                    <td class="profile-value"><?= htmlspecialchars($employee['office'] ?: 'Not provided') ?></td>
+                </tr>
                 </tbody>
             </table>
         </div>
@@ -1383,7 +1589,7 @@ $firstLetter = strtoupper(substr($employee['last_name'], 0, 1));
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0" style="font-size: 0.875rem;">
+            <table class="table table-hover mb-0 work-experience-table" style="font-size: 0.875rem;">
                 <thead style="background-color: #ffffff !important;">
                 <tr>
                     <th colspan="2" scope="col" class="text-center fw-bold" style="background-color: #ffffff !important; color: #212529 !important; border: 1px solid #e0e0e0 !important;">
@@ -2755,6 +2961,82 @@ $firstLetter = strtoupper(substr($employee['last_name'], 0, 1));
     </div>
 </div>
 
+<!-- Change Office / Department Modal -->
+<div class="modal fade" id="changeOfficeModal" tabindex="-1" aria-labelledby="changeOfficeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changeOfficeModalLabel">
+                    <i class="fas fa-building me-2"></i>Change Office / Department
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="update_office">
+                    <div class="mb-3">
+                        <label for="office_select" class="form-label">Office / Department</label>
+                        <select class="form-select" id="office_select" name="office">
+                            <option value="">Select Office / Department</option>
+                            <option value="LTS" <?= ($employee['office'] ?? '') === 'LTS' ? 'selected' : '' ?>>LTS</option>
+                            <option value="LEGAL" <?= ($employee['office'] ?? '') === 'LEGAL' ? 'selected' : '' ?>>LEGAL</option>
+                            <option value="DARAB" <?= ($employee['office'] ?? '') === 'DARAB' ? 'selected' : '' ?>>DARAB</option>
+                            <option value="PBDD" <?= ($employee['office'] ?? '') === 'PBDD' ? 'selected' : '' ?>>PBDD</option>
+                            <option value="OPARPO" <?= ($employee['office'] ?? '') === 'OPARPO' ? 'selected' : '' ?>>OPARPO</option>
+                            <option value="STOD" <?= ($employee['office'] ?? '') === 'STOD' ? 'selected' : '' ?>>STOD</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Update Office
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Change Employee ID Modal -->
+<div class="modal fade" id="changeEmployeeIdModal" tabindex="-1" aria-labelledby="changeEmployeeIdModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changeEmployeeIdModalLabel">
+                    <i class="fas fa-id-badge me-2"></i>Change Employee ID
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="update_employee_id">
+                    <div class="mb-3">
+                        <label for="employee_id_input" class="form-label">Employee ID Number</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="employee_id_input"
+                            name="employee_number"
+                            value="<?= htmlspecialchars($employee['employee_number'] ?? '') ?>"
+                            placeholder="Enter employee ID"
+                            maxlength="50"
+                        >
+                        <div class="form-text">Leave empty to remove the employee ID.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Update ID
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 <script>
 // Handle employment status modal form submission
 document.querySelector('#changeEmploymentStatusModal form')?.addEventListener('submit', function(e) {
@@ -2776,6 +3058,56 @@ document.querySelector('#changeEmploymentStatusModal form')?.addEventListener('s
     const customEl = document.getElementById('employment_status_custom');
     if (selectEl) selectEl.disabled = true;
     if (customEl) customEl.disabled = true;
+});
+
+// Test modal functionality on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure Bootstrap modal is available
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        console.log('Bootstrap Modal available');
+    } else {
+        console.error('Bootstrap Modal not available');
+    }
+
+    // Test if the modal element exists
+    const modalEl = document.getElementById('changeEmploymentStatusModal');
+    if (modalEl) {
+        console.log('Employment status modal found');
+    } else {
+        console.error('Employment status modal not found');
+    }
+});
+
+// Handle employee ID modal form submission
+document.querySelector('#changeEmployeeIdModal form')?.addEventListener('submit', function(e) {
+    const employeeId = document.getElementById('employee_id_input')?.value.trim();
+
+    // Basic validation
+    if (employeeId.length > 50) {
+        e.preventDefault();
+        alert('Employee ID cannot exceed 50 characters.');
+        return;
+    }
+
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Updating...';
+    submitBtn.disabled = true;
+
+    // Re-enable on error (will be handled by page reload on success)
+    setTimeout(() => {
+        if (submitBtn.disabled) {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    }, 5000);
+});
+
+// Reset Employee ID modal when closed
+document.getElementById('changeEmployeeIdModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('changeEmployeeIdModalLabel').textContent = 'Change Employee ID';
+    document.querySelector('#changeEmployeeIdModal form').reset();
 });
 
 // Edit Training function
@@ -2999,10 +3331,300 @@ document.getElementById('addWorkExperienceModal').addEventListener('hidden.bs.mo
     if (weIdInput) weIdInput.remove();
     document.querySelector('#addWorkExperienceModal form').reset();
 });
+
+// Close any open modals if there's a success message
+if (document.querySelector('.alert-success')) {
+    document.querySelectorAll('.modal').forEach(modal => {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) bsModal.hide();
+    });
+}
 </script>
 
-<?php
+<style>
+/* Professional Responsive Table Styles */
+@media (max-width: 768px) {
+    /* Educational Background Table - Professional Mobile Styles */
+    .service-record-table {
+        font-size: 0.8rem !important;
+        table-layout: auto !important;
+    }
+
+    .service-record-table thead th {
+        font-size: 0.75rem !important;
+        padding: 0.6rem 0.4rem !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        min-width: 90px !important;
+    }
+
+    /* Prevent Level column from cutting words like "elementary" */
+    .service-record-table thead th:first-child,
+    .service-record-table tbody td:first-child {
+        white-space: nowrap !important;
+        word-wrap: normal !important;
+        overflow: visible !important;
+        min-width: 120px !important;
+        max-width: 150px !important;
+    }
+
+    .service-record-table tbody td {
+        font-size: 0.75rem !important;
+        padding: 0.6rem 0.4rem !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+    }
+
+    /* Work Experience Table - Professional Mobile Styles */
+    .work-experience-table {
+        font-size: 0.8rem !important;
+    }
+
+    .work-experience-table thead th {
+        font-size: 0.75rem !important;
+        padding: 0.6rem 0.4rem !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        min-width: 85px !important;
+    }
+
+    .work-experience-table tbody td {
+        font-size: 0.75rem !important;
+        padding: 0.6rem 0.4rem !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+    }
+
+    /* Enhanced horizontal scrolling for both tables */
+    .table-responsive {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        border-radius: 0.375rem !important;
+    }
+
+    /* Professional action buttons for mobile */
+    .btn-action {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.7rem !important;
+        margin: 0.1rem !important;
+        border-radius: 0.25rem !important;
+    }
+
+    /* Make Add Work Experience button smaller on mobile */
+    button[data-bs-target="#addWorkExperienceModal"] {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        min-width: auto !important;
+    }
+
+    /* Make Add Service Record button smaller on mobile */
+    button[data-bs-target="#addServiceRecordModal"] {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        min-width: auto !important;
+    }
+
+    /* Make Add Appointment button smaller on mobile */
+    button[data-bs-target="#addAppointmentModal"] {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        min-width: auto !important;
+    }
+
+    /* Make Add Training button smaller on mobile */
+    button[data-bs-target="#addTrainingModal"] {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        min-width: auto !important;
+    }
+
+    /* Make Set Status button work properly on mobile */
+    button[data-bs-target="#changeEmploymentStatusModal"] {
+        padding: 0.4rem 0.8rem !important;
+        font-size: 0.8rem !important;
+        min-height: 36px !important;
+        min-width: 44px !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: rgba(40, 167, 69, 0.2) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        z-index: 1 !important;
+        cursor: pointer !important;
+        border: 1px solid transparent !important;
+        background-color: #198754 !important;
+        color: white !important;
+        transition: all 0.15s ease !important;
+    }
+
+    button[data-bs-target="#changeEmploymentStatusModal"]:hover {
+        background-color: #157347 !important;
+        transform: translateY(-1px) !important;
+    }
+
+    button[data-bs-target="#changeEmploymentStatusModal"]:active {
+        transform: translateY(0) !important;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Improve training table title readability on mobile */
+    .employee-table tbody td:first-child {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        min-width: 120px !important;
+        max-width: 180px !important;
+        font-weight: 600 !important;
+        line-height: 1.4 !important;
+        font-size: 0.8rem !important;
+        padding: 0.5rem !important;
+    }
+
+    /* Ensure training table is responsive */
+    .employee-table {
+        table-layout: auto !important;
+        font-size: 0.8rem !important;
+    }
+
+    .employee-table thead th {
+        font-size: 0.75rem !important;
+        padding: 0.6rem 0.4rem !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+
+    .employee-table tbody td {
+        font-size: 0.75rem !important;
+        padding: 0.6rem 0.4rem !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+    }
+
+    /* Prevent buttons from being cramped on mobile */
+    .card-header .btn {
+        margin-bottom: 0.25rem !important;
+        margin-right: 0.25rem !important;
+    }
+
+    .card-header > div {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+        justify-content: flex-end !important;
+    }
+
+    /* Ensure proper button spacing in card headers */
+    .card-header a.btn,
+    .card-header button.btn {
+        flex-shrink: 0 !important;
+    }
+
+    /* Make ALL buttons responsive on mobile */
+    .btn {
+        padding: 0.5rem 1rem !important;
+        font-size: 0.875rem !important;
+        line-height: 1.5 !important;
+        border-radius: 0.375rem !important;
+        min-height: 44px !important; /* iOS touch target minimum */
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: all 0.15s ease !important;
+    }
+
+    /* Smaller buttons on very small screens */
+    @media (max-width: 576px) {
+        .btn {
+            padding: 0.4rem 0.8rem !important;
+            font-size: 0.8rem !important;
+            min-height: 40px !important; /* Maintain touch target */
+            min-width: 44px !important; /* Prevent too narrow buttons */
+        }
+
+        /* Special handling for action buttons */
+        .btn-action {
+            padding: 0.3rem 0.6rem !important;
+            font-size: 0.75rem !important;
+            margin: 0.15rem !important;
+            min-height: 36px !important;
+            min-width: 36px !important;
+        }
+    }
+
+    /* Enhanced button interactions for mobile */
+    .btn:active {
+        transform: scale(0.98) !important;
+    }
+
+    /* Prevent text selection on buttons */
+    .btn {
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        user-select: none !important;
+    }
+
+    /* Fix employment status buttons for mobile */
+    .employment-status-badge {
+        min-height: 28px !important;
+        padding: 0.4rem 0.8rem !important;
+        font-size: 0.8rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        cursor: pointer !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: rgba(0, 123, 255, 0.2) !important;
+    }
+
+    .employment-status-badge:hover {
+        transform: scale(1.02) !important;
+    }
+
+    /* Fix employee ID badge for mobile */
+    .employee-id-badge {
+        min-height: 28px !important;
+        padding: 0.4rem 0.8rem !important;
+        font-size: 0.8rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        cursor: pointer !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: rgba(0, 123, 255, 0.2) !important;
+    }
+
+    .employee-id-badge:hover {
+        transform: scale(1.02) !important;
+    }
+
+    /* Ensure modal triggers work on mobile */
+    [data-bs-toggle="modal"] {
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    /* Fix for small screens */
+    @media (max-width: 576px) {
+        .employment-status-badge {
+            min-height: 32px !important;
+            padding: 0.5rem 1rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        .employee-id-badge {
+            min-height: 32px !important;
+            padding: 0.5rem 1rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        /* Ensure Set Status button works on small screens */
+        button[data-bs-target="#changeEmploymentStatusModal"] {
+            min-height: 40px !important;
+            padding: 0.5rem 1rem !important;
+            font-size: 0.8rem !important;
+        }
+    }
+}
+
+
 require_once 'footer.php';
 ?>
-
-

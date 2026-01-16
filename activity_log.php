@@ -15,7 +15,6 @@ try {
             action_description TEXT NOT NULL,
             table_name VARCHAR(100) DEFAULT NULL,
             record_id INT UNSIGNED DEFAULT NULL,
-            ip_address VARCHAR(45) DEFAULT NULL,
             user_agent TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_user (user_id),
@@ -31,16 +30,16 @@ try {
 try {
     // Check if cleanup was already done today by checking if there are any logs from previous days
     $checkStmt = $pdo->query("
-        SELECT COUNT(*) as old_count 
-        FROM activity_logs 
+        SELECT COUNT(*) as old_count
+        FROM activity_logs
         WHERE DATE(created_at) < CURDATE()
     ");
     $oldCount = $checkStmt->fetchColumn();
-    
+
     // If there are old logs, delete them
     if ($oldCount > 0) {
         $deleteStmt = $pdo->prepare("
-            DELETE FROM activity_logs 
+            DELETE FROM activity_logs
             WHERE DATE(created_at) < CURDATE()
         ");
         $deleteStmt->execute();
@@ -91,9 +90,9 @@ $totalPages = ceil($totalRecords / $perPage);
 
 // Get activity logs
 $stmt = $pdo->prepare("
-    SELECT * FROM activity_logs 
-    $whereClause 
-    ORDER BY created_at DESC 
+    SELECT * FROM activity_logs
+    $whereClause
+    ORDER BY created_at DESC
     LIMIT :limit OFFSET :offset
 ");
 foreach ($params as $key => $value) {
@@ -106,7 +105,7 @@ $logs = $stmt->fetchAll();
 
 // Get action type counts for statistics
 $statsStmt = $pdo->query("
-    SELECT 
+    SELECT
         action_type,
         COUNT(*) as count
     FROM activity_logs
@@ -117,7 +116,7 @@ $stats = $statsStmt->fetchAll();
 
 // Get recent activity summary
 $recentStmt = $pdo->query("
-    SELECT 
+    SELECT
         DATE(created_at) as date,
         COUNT(*) as count
     FROM activity_logs
@@ -209,7 +208,7 @@ require_once 'header.php';
             </div>
             <div class="col-md-4">
                 <label for="search" class="form-label small">Search</label>
-                <input type="text" class="form-control form-control-sm" id="search" name="search" 
+                <input type="text" class="form-control form-control-sm" id="search" name="search"
                        value="<?= htmlspecialchars($searchQuery) ?>" placeholder="Search activities...">
             </div>
             <div class="col-md-2 d-flex align-items-end">
@@ -245,7 +244,6 @@ require_once 'header.php';
                         <th style="width: 120px;">User</th>
                         <th style="width: 150px;">Action Type</th>
                         <th>Description</th>
-                        <th style="width: 100px;">IP Address</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -293,15 +291,12 @@ require_once 'header.php';
                                     <?php endif; ?>
                                 </div>
                             </td>
-                            <td>
-                                <small class="text-muted"><?= htmlspecialchars($log['ip_address'] ?? 'N/A') ?></small>
-                            </td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
-            
+
             <!-- Pagination -->
             <?php if ($totalPages > 1): ?>
                 <div class="card-footer bg-white border-top">

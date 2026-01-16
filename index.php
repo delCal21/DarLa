@@ -37,10 +37,17 @@ $statusColorMap = [
     'Not set' => ['bg' => 'rgba(200, 200, 200, 0.6)', 'border' => 'rgba(200, 200, 200, 0.8)'],
 ];
 
-// Create a map of status to count (for debugging/logging if needed)
+// Create a map of status to count (normalize to uppercase for matching)
 $statusMap = [];
 foreach ($statusSummary as $row) {
-    $statusMap[$row['status_label']] = (int)$row['total'];
+    $statusLabel = trim($row['status_label']);
+    // Normalize to uppercase for consistent matching
+    $statusKey = strtoupper($statusLabel);
+    $statusMap[$statusKey] = (int)$row['total'];
+    // Also keep original case for "Not set"
+    if ($statusLabel === 'Not set' || $statusLabel === 'Not Set') {
+        $statusMap['Not set'] = (int)$row['total'];
+    }
 }
 
 // Build chart data - show all statuses that have employees
@@ -50,7 +57,10 @@ $chartBackgroundColors = [];
 $chartBorderColors = [];
 
 foreach ($employmentStatuses as $status) {
-    $count = $statusMap[$status] ?? 0;
+    // Match using uppercase key
+    $statusKey = strtoupper($status);
+    $count = isset($statusMap[$statusKey]) ? $statusMap[$statusKey] : 0;
+    
     if ($count > 0) {
         $chartLabels[] = $status;
         $chartData[] = $count;
@@ -66,6 +76,69 @@ if (isset($statusMap['Not set']) && $statusMap['Not set'] > 0) {
     $chartBackgroundColors[] = $statusColorMap['Not set']['bg'];
     $chartBorderColors[] = $statusColorMap['Not set']['border'];
 }
+
+// Get office/department distribution for line chart
+$officeStmt = $pdo->query(
+    'SELECT 
+        COALESCE(NULLIF(TRIM(office), ""), "Not Set") AS office_label,
+        COUNT(*) AS total
+     FROM employees
+     GROUP BY office_label
+     ORDER BY office_label ASC'
+);
+$officeSummary = $officeStmt->fetchAll();
+
+// Prepare data for office/department line chart
+$defaultOffices = ['LTS', 'LEGAL', 'DARAB', 'PBDD', 'OPARPO', 'STOD'];
+$officeMap = [];
+foreach ($officeSummary as $row) {
+    $officeLabel = trim($row['office_label']);
+    $officeMap[$officeLabel] = (int)$row['total'];
+}
+
+// Build chart data - include all predefined offices
+$officeChartLabels = [];
+$officeChartData = [];
+
+// Always include all predefined offices (even if count is 0)
+foreach ($defaultOffices as $office) {
+    $officeChartLabels[] = $office;
+    // Check officeMap with exact match first, then try case-insensitive
+    $count = 0;
+    if (isset($officeMap[$office])) {
+        $count = (int)$officeMap[$office];
+    } else {
+        // Try case-insensitive match
+        foreach ($officeMap as $key => $value) {
+            if (strcasecmp(trim($key), trim($office)) === 0) {
+                $count = (int)$value;
+                break;
+            }
+        }
+    }
+    $officeChartData[] = $count;
+}
+
+// Add "Not Set" if exists and has employees
+if (isset($officeMap['Not Set']) && $officeMap['Not Set'] > 0) {
+    $officeChartLabels[] = 'Not Set';
+    $officeChartData[] = (int)$officeMap['Not Set'];
+}
+
+// Add any other offices found in database (not in predefined list)
+foreach ($officeSummary as $row) {
+    $office = $row['office_label'];
+    if (!in_array($office, $defaultOffices) && $office !== 'Not Set') {
+        $officeChartLabels[] = $office;
+        $officeChartData[] = (int)$row['total'];
+    }
+}
+
+// Ensure we have data (at least empty arrays)
+if (empty($officeChartLabels)) {
+    $officeChartLabels = $defaultOffices;
+    $officeChartData = array_fill(0, count($defaultOffices), 0);
+}
 ?>
 
 <!-- Breadcrumb -->
@@ -79,7 +152,7 @@ if (isset($statusMap['Not set']) && $statusMap['Not set'] > 0) {
     <div>
         <h1 class="h3 mb-1">Admin Dashboard</h1>
         <p class="text-muted mb-0">
-            High-level overview of employee records in <strong>DARLa HRIS</strong>.
+            High-level overview of employee records in <strong>DARLU HRIS</strong>.
         </p>
     </div>
 </div>
@@ -156,6 +229,76 @@ if (isset($statusMap['Not set']) && $statusMap['Not set'] > 0) {
                         </div>
                     </div>
                 <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Office / Department Line Graph -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2">
+                <div>
+                    <h6 class="card-title mb-0 fw-bold" style="font-size: 0.95rem;">
+                        <i class="fas fa-chart-line me-2 text-primary"></i>Employees by Office / Department
+                    </h6>
+                </div>
+                <div class="text-end">
+                    <span class="small text-muted">Total: </span>
+                    <span class="text-primary fw-bold" style="font-size: 0.95rem;"><?= number_format($totalEmployees) ?></span>
+                </div>
+            </div>
+            <div class="card-body p-3">
+                <!-- Debug Info (remove after testing) -->
+                <?php if (false): // Set to true to see debug info ?>
+                <div class="alert alert-info small mb-2">
+                    <strong>Debug Info:</strong><br>
+                    Office Summary: <?= print_r($officeSummary, true) ?><br>
+                    Office Map: <?= print_r($officeMap, true) ?><br>
+                    Chart Labels: <?= print_r($officeChartLabels, true) ?><br>
+                    Chart Data: <?= print_r($officeChartData, true) ?>
+                </div>
+                <?php endif; ?>
+                
+                <div class="chart-container" style="position: relative; height: 300px; margin-bottom: 8px;">
+                    <canvas id="officeDepartmentChart"></canvas>
+                </div>
+                <div class="mt-3 pt-3 border-top">
+                    <div class="row g-2">
+                        <?php 
+                        // Show all predefined offices plus any others
+                        $allOffices = $defaultOffices;
+                        // Add any other offices from database
+                        foreach ($officeSummary as $row) {
+                            $officeLabel = trim($row['office_label']);
+                            if (!in_array($officeLabel, $allOffices) && $officeLabel !== 'Not Set') {
+                                $allOffices[] = $officeLabel;
+                            }
+                        }
+                        // Add "Not Set" at the end if it exists
+                        if (isset($officeMap['Not Set']) && $officeMap['Not Set'] > 0) {
+                            $allOffices[] = 'Not Set';
+                        }
+                        
+                        foreach ($allOffices as $office): 
+                            $count = isset($officeMap[$office]) ? (int)$officeMap[$office] : 0;
+                            $percentage = $totalEmployees > 0 ? round(($count / $totalEmployees) * 100) : 0;
+                        ?>
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded">
+                                    <span class="small text-dark" style="font-size: 0.75rem;">
+                                        <i class="fas fa-building me-1 text-muted"></i>
+                                        <?= htmlspecialchars($office) ?>
+                                    </span>
+                                    <strong class="text-primary" style="font-size: 0.85rem;">
+                                        <?= $count ?> <span class="text-muted" style="font-size: 0.7rem;">(<?= $percentage ?>%)</span>
+                                    </strong>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -529,7 +672,7 @@ if (isset($statusMap['Not set']) && $statusMap['Not set'] > 0) {
                         },
                         label: function(context) {
                             const value = context.parsed.y;
-                            const percentage = totalEmployees > 0 ? ((value / totalEmployees) * 100).toFixed(1) : 0;
+                            const percentage = totalEmployees > 0 ? Math.round((value / totalEmployees) * 100) : 0;
                             return [
                                 'Employees: ' + value.toLocaleString(),
                                 'Percentage: ' + percentage + '%'
@@ -600,7 +743,7 @@ if (isset($statusMap['Not set']) && $statusMap['Not set'] > 0) {
                     const meta = chart.getDatasetMeta(0);
                     meta.data.forEach((bar, index) => {
                         const value = chart.data.datasets[0].data[index];
-                        const percentage = totalEmployees > 0 ? ((value / totalEmployees) * 100).toFixed(1) : 0;
+                        const percentage = totalEmployees > 0 ? Math.round((value / totalEmployees) * 100) : 0;
                         
                         // Draw value label on top of bar (only if bar is tall enough)
                         if (bar.height > 15) {
@@ -621,6 +764,169 @@ if (isset($statusMap['Not set']) && $statusMap['Not set'] > 0) {
         }
     });
 })();
+</script>
+
+<!-- Office / Department Line Chart -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('officeDepartmentChart');
+    if (!ctx) {
+        console.error('Canvas element not found');
+        return;
+    }
+    
+    const chartLabels = <?= json_encode($officeChartLabels) ?>;
+    const chartData = <?= json_encode($officeChartData) ?>;
+    
+    // Debug: Log the data to console
+    console.log('Office Chart Labels:', chartLabels);
+    console.log('Office Chart Data:', chartData);
+    
+    if (!chartLabels || !chartData || chartLabels.length === 0) {
+        console.error('Chart data is empty');
+        return;
+    }
+    
+    if (chartLabels.length !== chartData.length) {
+        console.error('Labels and data length mismatch:', chartLabels.length, 'vs', chartData.length);
+        return;
+    }
+    
+    const chartConfig = {
+        labels: chartLabels,
+        datasets: [{
+            label: 'Number of Employees',
+            data: chartData,
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            borderColor: 'rgba(13, 110, 253, 1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: 'rgba(13, 110, 253, 1)',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointHoverBackgroundColor: 'rgba(13, 110, 253, 1)',
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 3,
+        }]
+    };
+    
+    const totalEmployees = <?= $totalEmployees ?>;
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: chartConfig,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    top: 10,
+                    bottom: 10,
+                    left: 10,
+                    right: 10
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    padding: 14,
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold',
+                        family: "'Segoe UI', system-ui, sans-serif"
+                    },
+                    bodyFont: {
+                        size: 13,
+                        family: "'Segoe UI', system-ui, sans-serif"
+                    },
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;
+                        },
+                        label: function(context) {
+                            const value = context.parsed.y;
+                            const percentage = totalEmployees > 0 ? Math.round((value / totalEmployees) * 100) : 0;
+                            return [
+                                'Employees: ' + value.toLocaleString(),
+                                'Percentage: ' + percentage + '%'
+                            ];
+                        },
+                        labelColor: function(context) {
+                            return {
+                                borderColor: 'rgba(13, 110, 253, 1)',
+                                backgroundColor: 'rgba(13, 110, 253, 1)'
+                            };
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0,
+                        font: {
+                            size: 11,
+                            family: "'Segoe UI', system-ui, sans-serif"
+                        },
+                        color: '#6c757d',
+                        padding: 8,
+                        callback: function(value) {
+                            return value;
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.06)',
+                        drawBorder: false,
+                        lineWidth: 1
+                    },
+                    border: {
+                        display: false
+                    }
+                },
+                x: {
+                    ticks: {
+                        font: {
+                            size: 10,
+                            family: "'Segoe UI', system-ui, sans-serif",
+                            weight: '500'
+                        },
+                        color: '#495057',
+                        maxRotation: 45,
+                        minRotation: 0,
+                        padding: 8
+                    },
+                    grid: {
+                        display: false
+                    },
+                    border: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            },
+            animation: {
+                duration: 1500,
+                easing: 'easeInOutQuart'
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+});
 </script>
 
 <style>
@@ -725,6 +1031,10 @@ if (isset($statusMap['Not set']) && $statusMap['Not set'] > 0) {
 }
 
 #employmentStatusChart {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05));
+}
+
+#officeDepartmentChart {
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05));
 }
 

@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS employees (
 
     birthdate DATE DEFAULT NULL,
     home_address VARCHAR(255) DEFAULT NULL,
+    office VARCHAR(255) DEFAULT NULL,
     contact_no VARCHAR(50) DEFAULT NULL,
     email VARCHAR(150) DEFAULT NULL,
     civil_status VARCHAR(50) DEFAULT NULL,
@@ -183,14 +184,15 @@ CREATE TABLE IF NOT EXISTS employee_awards (
 -- Example employee for testing
 INSERT INTO employees (
     last_name, first_name, middle_name,
-    birthdate, home_address, contact_no, email, civil_status,
+    birthdate, home_address, office, contact_no, email, civil_status,
     spouse_name, spouse_contact_no,
-    employee_number, bp_number, pagibig_number, philhealth_number,
+    employee_number, pagibig_number, philhealth_number, tin_number, sss_number, gsis_number,
     trainings, designations, leave_info, service_record, employment_status
 ) VALUES (
     'TATUNAY', 'NEMIA THEODORA', 'MADARANG',
     '1966-04-01',
     '#2 Quirino Street Poblacion, Amligay La Union',
+    'LTS',
     '09773222445',
     'nemiamadarang@example.com',
     'Married',
@@ -200,11 +202,14 @@ INSERT INTO employees (
     '2000132073',
     '1280-0000-1868',
     '100000091396',
+    '132221615',
+    '0108007170',
+    '00600001868',
     'trainings...',
     'designations...',
     'leave info...',
     'service record...',
-    'permanent'
+    'PERMANENT'
 );
 
 INSERT INTO appointments (

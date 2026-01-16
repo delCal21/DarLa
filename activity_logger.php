@@ -6,19 +6,13 @@
 
 function logActivity($actionType, $description, $tableName = null, $recordId = null) {
     global $pdo;
-    
+
     // Get current user
     $userId = $_SESSION['admin_username'] ?? 'System';
-    
-    // Get IP address
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
-    }
-    
+
     // Get user agent
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-    
+
     try {
         // Check if table exists
         try {
@@ -33,7 +27,6 @@ function logActivity($actionType, $description, $tableName = null, $recordId = n
                     action_description TEXT NOT NULL,
                     table_name VARCHAR(100) DEFAULT NULL,
                     record_id INT UNSIGNED DEFAULT NULL,
-                    ip_address VARCHAR(45) DEFAULT NULL,
                     user_agent TEXT DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_user (user_id),
@@ -43,24 +36,23 @@ function logActivity($actionType, $description, $tableName = null, $recordId = n
                 )
             ");
         }
-        
+
         // Insert log
         $stmt = $pdo->prepare("
-            INSERT INTO activity_logs 
-            (user_id, action_type, action_description, table_name, record_id, ip_address, user_agent) 
-            VALUES (:user_id, :action_type, :description, :table_name, :record_id, :ip_address, :user_agent)
+            INSERT INTO activity_logs
+            (user_id, action_type, action_description, table_name, record_id, user_agent)
+            VALUES (:user_id, :action_type, :description, :table_name, :record_id, :user_agent)
         ");
-        
+
         $stmt->execute([
             ':user_id' => $userId,
             ':action_type' => $actionType,
             ':description' => $description,
             ':table_name' => $tableName,
             ':record_id' => $recordId,
-            ':ip_address' => $ipAddress,
             ':user_agent' => $userAgent
         ]);
-        
+
         return true;
     } catch (PDOException $e) {
         // Silently fail if logging fails (don't break the main functionality)

@@ -51,29 +51,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             
 
-            // Get all tables
-
-            $tables = [
-
+            // Desired tables to include in backups
+            $desiredTables = [
                 'employees',
-
                 'appointments',
-
                 'employee_trainings',
-
                 'employee_leaves',
-
                 'employee_service_records',
-
                 'employee_work_experience',
                 'employee_awards',
                 'admins',
-
                 'calendar_events',
-
                 'activity_logs'
-
             ];
+
+            // Only include tables that actually exist to prevent backup failures
+            $placeholders = rtrim(str_repeat('?,', count($desiredTables)), ',');
+            $stmt = $pdo->prepare("
+                SELECT TABLE_NAME 
+                FROM information_schema.TABLES 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME IN ($placeholders)
+            ");
+            $stmt->execute($desiredTables);
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            // Track missing tables for user feedback
+            $missingTables = array_diff($desiredTables, $tables);
 
             
 
@@ -179,9 +183,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             logActivity('backup_create', "Database backup created: " . basename($backupFile));
 
-            
-
             $successMessage = 'Backup created successfully: ' . basename($backupFile);
+
+            // Inform user if some tables were missing
+            if (!empty($missingTables)) {
+                $missingList = implode(', ', $missingTables);
+                $successMessage .= ' (Skipped missing tables: ' . $missingList . ')';
+                logActivity('backup_warning', "Backup skipped missing tables: {$missingList}");
+            }
 
         } catch (Exception $e) {
 

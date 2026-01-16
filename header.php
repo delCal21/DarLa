@@ -13,7 +13,7 @@ $adminUsername = $_SESSION['admin_username'] ?? 'Admin';
     <meta charset="UTF-8">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/employee.css">
-    <title>DARLa HRIS Dashboard</title>
+    <title>DARLU HRIS Dashboard</title>
     <link rel="icon" type="image/png" sizes="50x50" href="/DarLa/BG-DAR.png">
     <link rel="shortcut icon" href="/DarLa/BG-DAR.png" type="image/x-icon">
     <meta name="theme-color" content="#0b6b3d">
@@ -99,7 +99,7 @@ $adminUsername = $_SESSION['admin_username'] ?? 'Admin';
                 <div class="d-flex align-items-center px-3 py-3">
                     <img src="BG-DAR1-removebg-preview.png" alt="DAR Logo" class="sidebar-logo me-2">
                     <div>
-                        <div class="fw-bold text-dark">DARLa HRIS</div>
+                        <div class="fw-bold text-dark">DARLU HRIS</div>
                         <small class="text-muted">Department of Agrarian Reform</small>
                     </div>
                 </div>

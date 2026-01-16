@@ -41,19 +41,33 @@ try {
     $timestamp = date('Y-m-d_His');
     $backupFile = $backupDir . '/auto_backup_' . $timestamp . '.sql';
     
-    // Get all tables to backup
-    $tables = [
-        'employees',
-        'appointments',
-        'employee_trainings',
-        'employee_leaves',
-        'employee_service_records',
-        'employee_work_experience',
-        'employee_awards',
-        'admins',
-        'calendar_events',
-        'activity_logs'
-    ];
+    // First attempt: use mysqldump (includes routines, triggers, events)
+    $useMysqldump = false;
+    if (isset($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME)) {
+        $mysqldumpCmd = "mysqldump --host={$DB_HOST} --user={$DB_USER} --password={$DB_PASS} --routines --triggers --events --single-transaction --quick {$DB_NAME} > \"{$backupFile}\"";
+        exec($mysqldumpCmd, $cmdOut, $cmdStatus);
+        if ($cmdStatus === 0 && file_exists($backupFile) && filesize($backupFile) > 0) {
+            writeLog("mysqldump succeeded and created: " . basename($backupFile));
+            try {
+                logActivity('backup_create', "Automatic backup (mysqldump) created: " . basename($backupFile));
+            } catch (Exception $e) {
+                writeLog("Warning: Could not log activity: " . $e->getMessage());
+            }
+            writeLog("=== Automatic Backup Completed Successfully (mysqldump) ===");
+            exit(0);
+        } else {
+            writeLog("mysqldump not available or failed, falling back to PHP dump method");
+            // remove empty file if created
+            if (file_exists($backupFile) && filesize($backupFile) === 0) {
+                @unlink($backupFile);
+            }
+        }
+    }
+
+    // If mysqldump not available, fall back to PHP-based table dump (all existing tables)
+    $tables = [];
+    $stmt = $pdo->query("SHOW TABLES");
+    $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     
     writeLog("Starting backup of " . count($tables) . " tables");
     

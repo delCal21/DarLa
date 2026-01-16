@@ -43,8 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
    ////////////// THIS IS THE ADMIN ACCOUNT PLS AVOID TO DELETE THIS PART OF CODE.....DEL<3/////////
         if (!$authenticated) {
-          $validUsername = 'DARLa';
-          $validPassword = 'DARLU2025';
+          $validUsername = 'DARLU';
+          $validPassword = 'DARLU2026';
   ////////////////////////////////////////////////////////////////////////////////////////////////
 
             if ($username === $validUsername && $password === $validPassword) {
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - DARLa HRIS</title>
+    <title>Admin Login - DARLU HRIS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/employee.css">
     <link rel="icon" type="image/png" sizes="50x50" href="/DarLa/BG-DAR.png">
@@ -96,13 +96,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          alt="DAR La Union Logo"
                          class="img-fluid mb-2 login-logo">
                     <div class="small text-muted fw-semibold text-uppercase tracking-wide">
-                        Department of Agrarian Reform<br>La Union
+                        Department of Agrarian Reform<br>La Union HRIS
                     </div>
                 </div>
-                <h1 class="h5 mb-1 text-center">Admin Sign In</h1>
-                <p class="text-muted small mb-3 text-center">
-                    Access the employee records management system.
-                </p>
+           
                 <?php if (!empty($error)): ?>
                     <div class="alert alert-danger py-2 small mb-3 text-center"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
@@ -176,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
         <div class="card-footer text-center small text-muted bg-white border-0 py-2">
-            DARLa HRIS @2025
+            DARLU HRIS @2026
         </div>
     </div>
 </div>

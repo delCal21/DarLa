@@ -8,6 +8,10 @@ $letter = isset($_GET['letter']) && preg_match('/^[A-Z]$/', $_GET['letter'])
     ? strtoupper($_GET['letter'])
     : 'A';
 
+// Get filter parameters
+$filterStatus = isset($_GET['status']) ? trim($_GET['status']) : '';
+$filterOffice = isset($_GET['office']) ? trim($_GET['office']) : '';
+
 // Handle new employee submission
 $successMessage = '';
 $errorMessage = '';
@@ -21,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Personal information
     $birthdate = trim($_POST['birthdate'] ?? '');
     $homeAddress = trim($_POST['home_address'] ?? '');
+    $office = trim($_POST['office'] ?? '');
     $contactNo = trim($_POST['contact_no'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $civilStatus = trim($_POST['civil_status'] ?? '');
@@ -37,7 +42,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Additional text fields
     $trainings = trim($_POST['trainings'] ?? '');
-    $designations = trim($_POST['designations'] ?? '');
     $leaveInfo = trim($_POST['leave_info'] ?? '');
     $serviceRecord = trim($_POST['service_record'] ?? '');
     $employmentStatus = trim($_POST['employment_status'] ?? '');
@@ -92,18 +96,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtInsert = $pdo->prepare(
             'INSERT INTO employees (
                 last_name, first_name, middle_name,
-                birthdate, home_address, contact_no, email, civil_status,
+                birthdate, home_address, office, contact_no, email, civil_status,
                 spouse_name, spouse_contact_no,
                 employee_number, pagibig_number, philhealth_number,
                 tin_number, sss_number, gsis_number,
-                trainings, designations, leave_info, service_record, employment_status
+                trainings, leave_info, service_record, employment_status
             ) VALUES (
                 :last_name, :first_name, :middle_name,
-                :birthdate, :home_address, :contact_no, :email, :civil_status,
+                :birthdate, :home_address, :office, :contact_no, :email, :civil_status,
                 :spouse_name, :spouse_contact_no,
                 :employee_number, :pagibig_number, :philhealth_number,
                 :tin_number, :sss_number, :gsis_number,
-                :trainings, :designations, :leave_info, :service_record, :employment_status
+                :trainings, :leave_info, :service_record, :employment_status
             )'
         );
 
@@ -113,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':middle_name' => $middleName !== '' ? $middleName : null,
             ':birthdate' => $birthdate !== '' ? $birthdate : null,
             ':home_address' => $homeAddress !== '' ? $homeAddress : null,
+            ':office' => $office !== '' ? $office : null,
             ':contact_no' => $contactNo !== '' ? $contactNo : null,
             ':email' => $email !== '' ? $email : null,
             ':civil_status' => $civilStatus !== '' ? $civilStatus : null,
@@ -125,7 +130,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':sss_number' => $sssNumber !== '' ? $sssNumber : null,
             ':gsis_number' => $gsisNumber !== '' ? $gsisNumber : null,
             ':trainings' => $trainings !== '' ? $trainings : null,
-            ':designations' => $designations !== '' ? $designations : null,
             ':leave_info' => $leaveInfo !== '' ? $leaveInfo : null,
             ':service_record' => $serviceRecord !== '' ? $serviceRecord : null,
             ':employment_status' => $employmentStatus !== '' ? $employmentStatus : null,
@@ -246,18 +250,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        $successMessage = 'New employee "' . htmlspecialchars($lastName . ', ' . $firstName) . '" has been added.';
+        // Check if employee was added as inactive
+        if (strcasecmp($employmentStatus, 'RETIRED') === 0 || strcasecmp($employmentStatus, 'RESIGNED') === 0) {
+            $statusText = strcasecmp($employmentStatus, 'RETIRED') === 0 ? 'RETIRED' : 'RESIGNED';
+            $firstLetter = strtoupper(substr($lastName, 0, 1));
+            $successMessage = 'New inactive employee "' . htmlspecialchars($lastName . ', ' . $firstName) . '" has been added with status: ' . $statusText . '. ';
+            $successMessage .= 'You can view this employee in the <a href="retired_employees.php?letter=' . $firstLetter . '" class="alert-link">Inactive Employees section</a>.';
+        } else {
+            $successMessage = 'New employee "' . htmlspecialchars($lastName . ', ' . $firstName) . '" has been added.';
+        }
     }
 }
 
-$stmt = $pdo->prepare(
-    'SELECT id, last_name, first_name, middle_name
-     FROM employees
-     WHERE last_name LIKE :prefix
-     AND (employment_status IS NULL OR employment_status NOT IN ("RETIRED", "RESIGNED"))
-     ORDER BY last_name, first_name'
-);
-$stmt->execute([':prefix' => $letter . '%']);
+// Build SQL query with filters
+$whereConditions = [
+    'last_name LIKE :prefix',
+    '(employment_status IS NULL OR employment_status NOT IN ("RETIRED", "RESIGNED"))'
+];
+$queryParams = [':prefix' => $letter . '%'];
+
+// Add employment status filter
+if ($filterStatus !== '') {
+    if ($filterStatus === 'Not Set') {
+        $whereConditions[] = '(employment_status IS NULL OR TRIM(employment_status) = "")';
+    } else {
+        $whereConditions[] = 'employment_status = :filter_status';
+        $queryParams[':filter_status'] = $filterStatus;
+    }
+}
+
+// Add office/department filter
+if ($filterOffice !== '') {
+    if ($filterOffice === 'Not Set') {
+        $whereConditions[] = '(office IS NULL OR TRIM(office) = "")';
+    } else {
+        $whereConditions[] = 'office = :filter_office';
+        $queryParams[':filter_office'] = $filterOffice;
+    }
+}
+
+$sql = 'SELECT id, last_name, first_name, middle_name
+        FROM employees
+        WHERE ' . implode(' AND ', $whereConditions) . '
+        ORDER BY last_name, first_name';
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($queryParams);
 $employees = $stmt->fetchAll();
 
 require_once 'header.php';
@@ -286,13 +324,33 @@ require_once 'header.php';
                         <p class="text-muted mb-0 small">
                             <i class="fas fa-users me-1"></i>
                             Last name starting with "<strong><?= htmlspecialchars($letter) ?></strong>"
+                            <?php if ($filterStatus !== '' || $filterOffice !== ''): ?>
+                                <span class="ms-2">
+                                    <i class="fas fa-filter me-1"></i>Filters active
+                                </span>
+                            <?php endif; ?>
                         </p>
                     </div>
                 </div>
             </div>
             <div class="col-md-4 text-md-end mt-2 mt-md-0">
                 <div class="d-flex flex-column flex-md-row gap-2 justify-content-md-end">
-                    <a href="employee_directory.php" class="btn btn-outline-primary btn-sm">
+                    <?php
+                    // Build back URL with filters
+                    $backUrl = 'employee_directory.php';
+                    if ($filterStatus !== '' || $filterOffice !== '') {
+                        $backUrl .= '?';
+                        $backParams = [];
+                        if ($filterStatus !== '') {
+                            $backParams[] = 'status=' . urlencode($filterStatus);
+                        }
+                        if ($filterOffice !== '') {
+                            $backParams[] = 'office=' . urlencode($filterOffice);
+                        }
+                        $backUrl .= implode('&', $backParams);
+                    }
+                    ?>
+                    <a href="<?= htmlspecialchars($backUrl) ?>" class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-arrow-left me-1"></i> Back
                     </a>
                     <button
@@ -306,6 +364,31 @@ require_once 'header.php';
                 </div>
             </div>
         </div>
+        <?php if ($filterStatus !== '' || $filterOffice !== ''): ?>
+            <div class="mt-3 pt-3 border-top">
+                <div class="alert alert-info mb-0 py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-filter me-2"></i>
+                            <strong>Active Filters:</strong>
+                            <?php if ($filterStatus !== ''): ?>
+                                <span class="badge bg-primary me-2">
+                                    <i class="fas fa-briefcase me-1"></i>Status: <?= htmlspecialchars($filterStatus) ?>
+                                </span>
+                            <?php endif; ?>
+                            <?php if ($filterOffice !== ''): ?>
+                                <span class="badge bg-primary me-2">
+                                    <i class="fas fa-building me-1"></i>Department: <?= htmlspecialchars($filterOffice) ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <a href="employees.php?letter=<?= htmlspecialchars($letter) ?>" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>Clear Filters
+                        </a>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
         <?php if (!empty($employees)): ?>
             <?php
             $stmtTotal = $pdo->query('SELECT COUNT(*) as total FROM employees WHERE (employment_status IS NULL OR employment_status NOT IN ("RETIRED", "RESIGNED"))');
@@ -350,7 +433,7 @@ require_once 'header.php';
 <?php if (!empty($successMessage)): ?>
     <div class="alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
         <i class="fas fa-check-circle me-2"></i>
-        <div><?= htmlspecialchars($successMessage) ?></div>
+        <div><?= $successMessage ?></div>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 <?php endif; ?>
@@ -579,6 +662,22 @@ require_once 'header.php';
                             <option value="RESIGNED">RESIGNED</option>
                             <option value="RETIRED">RETIRED</option>
                             <option value="OTHERS">OTHERS</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label for="office" class="form-label">Department / Office</label>
+                        <select
+                            class="form-select"
+                            id="office"
+                            name="office"
+                        >
+                            <option value="">-- Select Department / Office --</option>
+                            <option value="LTS">LTS</option>
+                            <option value="LEGAL">LEGAL</option>
+                            <option value="DARAB">DARAB</option>
+                            <option value="PBDD">PBDD</option>
+                            <option value="OPARPO">OPARPO</option>
+                            <option value="STOD">STOD</option>
                         </select>
                     </div>
                 </div>
