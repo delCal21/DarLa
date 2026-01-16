@@ -1,5 +1,5 @@
 <?php
-// api/_middleware.php - Middleware to handle routing for Vercel
+// api/_router.php - Router to handle routing for Vercel
 
 // Define the router
 class PHPRouter {
@@ -24,6 +24,8 @@ class PHPRouter {
             '/employee' => '../employee.php',
             '/employees' => '../employees.php',
             '/health' => './health.php',
+            '/test' => './test.php',
+            '/status' => './status.php',
         ];
     }
 
@@ -38,22 +40,33 @@ class PHPRouter {
         if (isset($this->routes[$path])) {
             $target_file = $this->routes[$path];
 
-            // Make sure the file exists and is readable
-            if (file_exists($target_file) && is_readable($target_file)) {
+            // Adjust path for Vercel environment
+            $full_path = __DIR__ . '/' . $target_file;
+
+            // Normalize the path to remove any double dots for security
+            $full_path = realpath($full_path) ?: $full_path;
+
+            // Make sure the file exists and is readable and is within the allowed directories
+            if (file_exists($full_path) && is_readable($full_path) && strpos($full_path, __DIR__) === 0) {
                 // Include the requested PHP file
-                include_once $target_file;
+                include_once $full_path;
                 exit();
             } else {
-                // File doesn't exist
+                // File doesn't exist or is outside allowed directories
                 http_response_code(404);
-                echo json_encode(['error' => 'File not found: ' . $target_file]);
+                echo json_encode(['error' => 'File not found or unauthorized: ' . $target_file]);
                 exit();
             }
         }
 
-        // Handle root path
+        // Handle root path - direct to main index.php which will handle the application logic
         if ($path === '' || $path === '/') {
-            include_once '../index.php';
+            $index_path = __DIR__ . '/../index.php';
+            if (file_exists($index_path) && is_readable($index_path)) {
+                include_once $index_path;
+            } else {
+                echo json_encode(['error' => 'Main index.php not found']);
+            }
             exit();
         }
 
