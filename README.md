@@ -1,10 +1,10 @@
 # DarLa Application
 
-This is the DarLa application deployed on Vercel with PHP support.
+This is the DarLa application deployed on Vercel with PHP support using the community runtime.
 
 ## Deployment to Vercel
 
-1. Make sure you have the `vercel-php` runtime configured in your `vercel.json`
+1. Make sure you have the `vercel-php@0.9.0` runtime configured in your `vercel.json`
 2. Set up your environment variables in Vercel dashboard:
    - DB_HOST: Your database host
    - DB_NAME: Your database name
@@ -14,10 +14,11 @@ This is the DarLa application deployed on Vercel with PHP support.
 
 ## Important Notes
 
-- This application uses PHP and requires the `vercel-php` runtime
+- This application uses PHP through the community `vercel-php` runtime
 - Database connections use environment variables for security
 - All routes are handled through the API endpoint at `/api/index.php`
-- PHP version is set to 8.1 in composer.json
+- PHP version 8.5.x is used (supported by vercel-php@0.9.0)
+- The application works with popular PHP frameworks and includes common extensions
 
 ## Routes
 
